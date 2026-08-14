@@ -19,7 +19,17 @@ try {
     );
     fwrite(STDOUT, "Database connection OK\n");
     exit(0);
+} catch (PDOException $e) {
+    $mysqlCode = isset($e->errorInfo[1]) ? (int)$e->errorInfo[1] : 0;
+    $reason = match ($mysqlCode) {
+        1045 => 'authentication rejected (check database username/password)',
+        1049 => 'database name not found',
+        2002 => 'database host/socket unavailable',
+        default => 'database connection rejected',
+    };
+    fwrite(STDERR, "Database connection failed: MySQL {$mysqlCode} - {$reason}.\n");
+    exit(1);
 } catch (Throwable $e) {
-    fwrite(STDERR, "Database connection failed: " . get_class($e) . "\n");
+    fwrite(STDERR, "Database connection failed before MySQL authentication.\n");
     exit(1);
 }
