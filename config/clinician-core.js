@@ -1,51 +1,66 @@
 export const clinicianCore = {
   principles: [
-    "A clinician's capability is broader than what a website should actively market.",
-    "Patient situations should be recognizable before they are clinical.",
-    "Competence, strong fit, desire, and marketing priority are separate judgments.",
-    "Clinician observations create persona hypotheses; they do not become final personas by themselves.",
-    "Original responses are source material and should remain distinguishable from later interpretation."
+    "Begin with a person's recognizable situation rather than a diagnosis.",
+    "Treat behavior as evidence, not as a complete explanation of the person.",
+    "Connect human patterns to clinical concerns only after the lived experience is described.",
+    "Use stakeholder responses as source material for later analysis, not as finished personas."
   ],
-  relationshipOptions: [
-    { value: "can-serve", label: "Can responsibly serve" },
-    { value: "strong-fit", label: "Strong fit / some of my best work" },
-    { value: "refer", label: "Usually refer elsewhere" },
-    { value: "unsure", label: "Depends / needs more context" }
-  ],
-  caseloadOptions: [
-    { value: "more", label: "Want more" },
-    { value: "neutral", label: "No preference" },
-    { value: "less", label: "Want less" }
-  ],
-  patternQuestionGroups: [
+  patternQuestions: [
     {
-      id: "observed",
-      label: "What you have observed",
-      help: "Use recurring behavior, language, and circumstances you have actually encountered.",
-      questions: [
-        ["turningPoint", "What was changing, failing, or getting harder to ignore when this person finally looked for help?"],
-        ["initialVsUnderlying", "What might they initially say the problem is, and what often becomes clearer through the work?"],
-        ["preclinicalLanguage", "What words have you heard people use before they know or use clinical language?"],
-        ["priorAttempts", "What have they commonly tried already, and what did those attempts fail to give them?"],
-        ["othersAffected", "Who else tends to be affected, and who may notice the problem before the patient does?"],
-        ["actionMoment", "What tends to happen immediately before this person becomes willing to act?"]
-      ]
+      number: 5,
+      key: "helpSeekingMoment",
+      label: "What is happening when this person begins looking for help?",
+      help: "Describe the event, realization, consequence, conversation, or accumulation of strain that makes this moment different."
     },
     {
-      id: "hypothesis",
-      label: "Your informed hypothesis",
-      help: "These answers can include clinical judgment. They will be treated as hypotheses to validate, not as patient quotations or settled facts.",
-      questions: [
-        ["permissionStory", "What story might they tell themselves that makes it possible to keep going as they are?"],
-        ["fearOfChange", "What are they afraid they could lose if they change?"],
-        ["riskOfNoChange", "What are they increasingly at risk of losing if nothing changes?"],
-        ["reliefVsChange", "What immediate relief are they hoping for, and what deeper change might eventually become possible?"],
-        ["trustNeed", "What do they need from a clinician before they are likely to become genuinely honest?"],
-        ["withdrawalTrigger", "What could a provider say or do that would make this person withdraw, become defensive, or stop engaging?"],
-        ["realQuestion", "What may be the real question underneath the question they usually ask out loud?"],
-        ["searchLanguage", "Based on language you have heard, what might they type into a private late-night search?"],
-        ["sentenceCompletions", "Complete any that feel revealing: “I’m not sure I need treatment, but …” / “I keep telling myself …” / “I want things to change, but I’m afraid …” / “I would ask for help if I knew …” / “I don’t want someone to tell me …” / “What I really want is …”"]
-      ]
+      number: 6,
+      key: "outsideView",
+      label: "What might appear to be happening from the outside?",
+      help: "Consider work, relationships, health, responsibilities, and visible substance use."
+    },
+    {
+      number: 7,
+      key: "privateExperience",
+      label: "What thoughts and feelings might this person be keeping private?",
+      help: "Use ordinary language whenever possible."
+    },
+    {
+      number: 8,
+      key: "repeatedPattern",
+      label: "What are they repeatedly doing, avoiding, hiding, or trying to control?"
+    },
+    {
+      number: 9,
+      key: "temporaryFunction",
+      label: "What does substance use—or another coping behavior—temporarily do for them?",
+      help: "For example: quiets anxiety, creates distance, helps with sleep, provides energy, or offers belonging."
+    },
+    {
+      number: 10,
+      key: "desiredChange",
+      label: "What do they most want to change in everyday life?",
+      help: "Focus on the life they want, not only the behavior or symptom they want to stop."
+    },
+    {
+      number: 11,
+      key: "contactHesitation",
+      label: "What might make them hesitate to contact Varetto?"
+    },
+    {
+      number: 12,
+      key: "serviceFit",
+      label: "Which Varetto services could help this person?"
+    },
+    {
+      number: 13,
+      key: "associatedConditions",
+      label: "Which conditions or clinical concerns are commonly associated with this experience?",
+      help: "These are possible clinical connections—not labels for every person who shares this experience."
+    },
+    {
+      number: 14,
+      key: "referralBoundary",
+      label: "When would this person need a different provider or level of care?"
     }
   ]
 };

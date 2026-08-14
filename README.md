@@ -1,16 +1,16 @@
 # oobDISCOVERY-CLINICIAN
 
-An oobCREATIVE discovery system for capturing clinician strengths, patient-fit patterns, lived-language insights, preferences, and boundaries to inform human-centered audience personas, messaging, and website strategy.
+An oobCREATIVE discovery system for defining therapy services and capturing the human situations, lived-language insights, and boundaries needed for patient-centered website strategy.
 
 ## Purpose
 
-This repository contains the first discovery type in the broader `discovery.oobcreative.com` system. The clinician experience is designed to learn from professional judgment without turning credentials, diagnoses, or service inventories directly into marketing claims.
+This repository contains the first discovery type in the broader `discovery.oobcreative.com` system. The Varetto experience is designed for a small group of informed stakeholders to define the therapy offering and identify the people the website should understand especially well.
 
 The intended reasoning flow is:
 
-**source responses → observed patterns → persona hypotheses → validated audience strategy**
+**service definition → priority situations → human patterns → persona hypotheses → website content**
 
-The public-facing form begins with recognizable patient situations and clinician fit, then moves into deeper observed patterns and finally practice realities. Clinical facts support the strategy; they do not automatically determine what should be marketed.
+The form confirms launch services, asks respondents to choose up to three priority audience situations, and then examines what those people may be experiencing. Diagnoses and clinical concerns remain secondary to recognizable thoughts, feelings, behaviors, and desired change.
 
 ## Current status
 
@@ -32,7 +32,7 @@ GitHub Pages
   discovery.oobcreative.com
         |
         +-- /                 discovery hub
-        +-- /clinician/       clinician discovery
+        +-- /clinician/       therapy website discovery
                                 |
                                 +--> POST submission JSON
                                          |
@@ -71,12 +71,12 @@ Do not extend this implementation to collect patient medical records or identifi
 
 ```text
 index.html                         Discovery hub
-clinician/index.html               Clinician form shell
+clinician/index.html               Therapy discovery form shell
 assets/styles.css                  Shared oobCREATIVE interface styling
 src/app.js                         Form rendering, autosave, dictation, validation, submit
 src/system-config.js               Shared runtime configuration
-config/clinician-core.js           Reusable clinician discovery model
-config/varetto.js                  First client configuration / hypotheses
+config/clinician-core.js           Reusable audience-pattern questions
+config/varetto.js                  Varetto services and audience prompts
 schema/submission.schema.json      Submission data contract
 docs/METHOD.md                     Discovery methodology and guardrails
 docs/DATA-CONNECTION.md            Bluehost/API handoff requirements
@@ -86,7 +86,7 @@ docs/DATA-CONNECTION.md            Bluehost/API handoff requirements
 ## Brand principles carried into this system
 
 - Begin with recognizable human situations rather than requiring clinical vocabulary.
-- Preserve the clinician's judgment and the respondent's agency.
+- Preserve stakeholder judgment and respondent agency.
 - Separate observation, inference, and public claims.
 - Do not equate technical capability with something that should be marketed.
 - Use emotional insight with restraint.

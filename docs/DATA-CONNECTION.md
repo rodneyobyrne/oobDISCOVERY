@@ -95,11 +95,11 @@ discovery_analysis
   human_review_status
 ```
 
-This keeps the original clinician response immutable and distinguishable from interpretation.
+This keeps the original stakeholder response immutable and distinguishable from interpretation.
 
 ## Privacy boundary
 
-The form asks clinicians for generalized patterns and explicitly says not to provide identifying patient information. Keep that boundary.
+The form asks respondents for generalized patterns and explicitly says not to provide identifying patient information. Keep that boundary.
 
 If the product later intentionally collects identifiable patient/client health information, stop and redesign the hosting, privacy, permissions, contracts, retention, and compliance model rather than extending this endpoint casually.
 
