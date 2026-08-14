@@ -40,5 +40,6 @@ jobs:
       - name: Validate PHP
         run: |
           php -l server/api/discovery/submit/index.php
+          php -l server/api/discovery/results/index.php
           php -l server/tools/migrate-db.php
           php -l server/tools/verify-db.php
