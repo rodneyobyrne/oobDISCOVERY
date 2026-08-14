@@ -55,3 +55,10 @@ jobs:
             test "$(stat -c %a /home1/reaqfvmy/oob-discovery-config.php)" = "600" &&
             php -l /home1/reaqfvmy/api.oobcreative.com/discovery/submit/index.php
           '
+
+      - name: Verify database connection
+        env:
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+        run: |
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" "php -r '\$c=require \"/home1/reaqfvmy/oob-discovery-config.php\"; \$d=\$c[\"database\"]; new PDO(\"mysql:host=\".\$d[\"host\"].\";dbname=\".\$d[\"name\"].\";charset=utf8mb4\", \$d[\"user\"], \$d[\"password\"], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); echo \"Database connection OK\\n\";'"
