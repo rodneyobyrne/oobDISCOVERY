@@ -43,3 +43,15 @@ jobs:
           test -n "$BLUEHOST_SSH_USER"
           ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'mkdir -p /home1/reaqfvmy/api.oobcreative.com/discovery/submit'
           scp server/api/discovery/submit/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/submit/index.php"
+
+      - name: Verify private config and PHP
+        env:
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+        run: |
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
+            test -f /home1/reaqfvmy/oob-discovery-config.php &&
+            chmod 600 /home1/reaqfvmy/oob-discovery-config.php &&
+            test "$(stat -c %a /home1/reaqfvmy/oob-discovery-config.php)" = "600" &&
+            php -l /home1/reaqfvmy/api.oobcreative.com/discovery/submit/index.php
+          '
