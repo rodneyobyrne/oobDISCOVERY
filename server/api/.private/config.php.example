@@ -1,0 +1,14 @@
+<?php
+return [
+    'allowed_origins' => [
+        'https://discovery.oobcreative.com',
+    ],
+    'max_payload_bytes' => 262144,
+    'database' => [
+        'host' => 'localhost',
+        'name' => 'reaqfvmy_oobdisc',
+        'user' => 'reaqfvmy_oobform',
+        // Deploy workflow generates the real config.php from GitHub secrets.
+        'password_b64' => 'REPLACE_AT_DEPLOY_TIME',
+    ],
+];
