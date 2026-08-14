@@ -1,6 +1,6 @@
-import { systemConfig } from "./system-config.js";
-import { clinicianCore } from "../config/clinician-core.js";
-import { varettoConfig } from "../config/varetto.js";
+import { systemConfig } from "./system-config.js?v=0.2.1";
+import { clinicianCore } from "../config/clinician-core.js?v=0.2.1";
+import { varettoConfig } from "../config/varetto.js?v=0.2.1";
 
 const config = varettoConfig;
 const app = document.querySelector("#app");
