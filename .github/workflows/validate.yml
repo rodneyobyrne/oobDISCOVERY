@@ -1,0 +1,42 @@
+name: Validate Discovery
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate JavaScript
+        run: |
+          node --check src/app.js
+          node --check src/system-config.js
+          node --check config/clinician-core.js
+          node --check config/varetto.js
+
+      - name: Validate questionnaire configuration
+        run: |
+          node --input-type=module <<'NODE'
+          import { clinicianCore } from './config/clinician-core.js';
+          import { varettoConfig } from './config/varetto.js';
+          const keys = clinicianCore.patternQuestionGroups.flatMap(group => group.questions.map(question => question[0]));
+          if (new Set(keys).size !== keys.length) throw new Error('Pattern question keys must be unique.');
+          if (varettoConfig.archetypes.length < 1) throw new Error('At least one archetype is required.');
+          if (!varettoConfig.questionnaireVersion.endsWith('-v2')) throw new Error('Expected the v2 questionnaire contract.');
+          NODE
+
+      - name: Validate JSON schema
+        run: node -e "JSON.parse(require('fs').readFileSync('schema/submission.schema.json', 'utf8'))"
+
+      - name: Validate PHP
+        run: |
+          php -l server/api/discovery/submit/index.php
+          php -l server/tools/verify-db.php
