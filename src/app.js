@@ -1,6 +1,6 @@
-import { systemConfig } from "./system-config.js?v=0.2.1";
-import { clinicianCore } from "../config/clinician-core.js?v=0.2.1";
-import { varettoConfig } from "../config/varetto.js?v=0.2.1";
+import { systemConfig } from "./system-config.js?v=0.2.2";
+import { clinicianCore } from "../config/clinician-core.js?v=0.2.2";
+import { varettoConfig } from "../config/varetto.js?v=0.2.2";
 
 const config = varettoConfig;
 const app = document.querySelector("#app");
@@ -29,8 +29,9 @@ function narrativeField(id, label, help = "", questionNumber = "", questionKey =
     ${help ? `<p class="help">${esc(help)}</p>` : ""}
     <textarea id="${esc(id)}" name="${esc(id)}" data-narrative></textarea>
     <div class="textarea-tools">
-      <button type="button" class="button secondary small dictate" data-target="${esc(id)}">Use microphone</button>
-      <span class="dictation-state" id="${esc(id)}-dictation"></span>
+      <button type="button" class="button secondary small dictate" data-target="${esc(id)}" aria-controls="${esc(id)}-dictation">Use microphone</button>
+      <button type="button" class="button small dictate-stop hidden" data-target="${esc(id)}">Stop now</button>
+      <span class="dictation-state" id="${esc(id)}-dictation" role="status" aria-live="polite"></span>
     </div>
   </div>`;
 }
@@ -284,6 +285,62 @@ function wireDictation(scope) {
     button.dataset.wired = "true";
     button.addEventListener("click", () => startDictation(button.dataset.target));
   });
+  scope.querySelectorAll(".dictate-stop").forEach(button => {
+    if (button.dataset.wired) return;
+    button.dataset.wired = "true";
+    button.addEventListener("click", () => stopDictation(button.dataset.target));
+  });
+}
+
+function setDictationControls(session, listening) {
+  const stopHadFocus = document.activeElement === session.stopButton;
+  session.startButton?.classList.toggle("hidden", listening);
+  session.stopButton?.classList.toggle("hidden", !listening);
+  if (listening) {
+    session.stopButton.disabled = false;
+    session.stopButton.focus();
+  } else if (stopHadFocus) {
+    session.startButton?.focus();
+  }
+}
+
+function clearDictationTimers(session) {
+  window.clearTimeout(session.silenceTimer);
+  window.clearTimeout(session.stopFallbackTimer);
+}
+
+function finishDictation(session) {
+  if (session.finished) return;
+  session.finished = true;
+  clearDictationTimers(session);
+  setDictationControls(session, false);
+  if (session.state) session.state.textContent = session.endMessage || "Dictation added. Edit anything you want.";
+  if (activeRecognition === session) activeRecognition = null;
+}
+
+function requestDictationStop(session, message) {
+  if (!session || session.stopping || session.finished) return;
+  session.stopping = true;
+  session.endMessage = message;
+  window.clearTimeout(session.silenceTimer);
+  if (session.state) session.state.textContent = "Stopping…";
+  if (session.stopButton) session.stopButton.disabled = true;
+  session.stopFallbackTimer = window.setTimeout(() => finishDictation(session), 1200);
+  try {
+    session.recognition.stop();
+  } catch {
+    finishDictation(session);
+  }
+}
+
+function scheduleDictationStop(session, delay, message) {
+  window.clearTimeout(session.silenceTimer);
+  session.silenceTimer = window.setTimeout(() => requestDictationStop(session, message), delay);
+}
+
+function stopDictation(targetId) {
+  if (!activeRecognition || activeRecognition.targetId !== targetId) return;
+  requestDictationStop(activeRecognition, "Dictation stopped. Edit anything you want.");
 }
 
 async function startDictation(targetId) {
@@ -302,16 +359,31 @@ async function startDictation(targetId) {
     if (result !== "continue") return;
     localStorage.setItem(systemConfig.dictationNoticeKey, "accepted");
   }
-  if (activeRecognition) activeRecognition.stop();
+  if (activeRecognition) requestDictationStop(activeRecognition, "Dictation stopped. Edit anything you want.");
   const recognition = new Recognition();
   recognition.lang = "en-US";
   recognition.continuous = true;
   recognition.interimResults = true;
   let finalTranscript = "";
   const original = target.value.trim();
-  activeRecognition = recognition;
-  if (state) state.textContent = "Listening…";
+  const session = {
+    recognition,
+    targetId,
+    state,
+    startButton: document.querySelector(`.dictate[data-target="${CSS.escape(targetId)}"]`),
+    stopButton: document.querySelector(`.dictate-stop[data-target="${CSS.escape(targetId)}"]`),
+    silenceTimer: null,
+    stopFallbackTimer: null,
+    endMessage: "",
+    stopping: false,
+    finished: false
+  };
+  activeRecognition = session;
+  setDictationControls(session, true);
+  if (state) state.textContent = "Listening… stops after about 2 seconds of silence.";
+  scheduleDictationStop(session, systemConfig.dictationInitialTimeoutMs, "No speech was detected. Try again or type your response.");
   recognition.onresult = event => {
+    if (session.stopping || session.finished) return;
     let interim = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const text = event.results[i][0].transcript;
@@ -319,10 +391,21 @@ async function startDictation(targetId) {
     }
     target.value = [original, finalTranscript.trim(), interim.trim()].filter(Boolean).join(" ");
     target.dispatchEvent(new Event("input", { bubbles: true }));
+    scheduleDictationStop(session, systemConfig.dictationSilenceTimeoutMs, "Dictation stopped after a short pause. Edit anything you want.");
   };
-  recognition.onerror = event => { if (state) state.textContent = `Microphone stopped: ${event.error}.`; };
-  recognition.onend = () => { activeRecognition = null; if (state) state.textContent = "Dictation added. Edit anything you want."; };
-  recognition.start();
+  recognition.onerror = event => {
+    if (session.stopping) return;
+    session.endMessage = event.error === "no-speech"
+      ? "No speech was detected. Try again or type your response."
+      : `Microphone stopped: ${event.error}.`;
+  };
+  recognition.onend = () => finishDictation(session);
+  try {
+    recognition.start();
+  } catch {
+    session.endMessage = "The microphone could not start. Try again or type your response.";
+    finishDictation(session);
+  }
 }
 
 function collectNamedFields() {
