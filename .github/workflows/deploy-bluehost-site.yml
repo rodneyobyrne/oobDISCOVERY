@@ -39,18 +39,13 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$BLUEHOST_SSH_HOST" >> ~/.ssh/known_hosts
 
-      - name: Ensure Discovery subdomain
+      - name: Prepare document root
         env:
           BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
           BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
         run: |
           test -n "$BLUEHOST_SSH_USER"
-          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
-            if ! /usr/local/cpanel/bin/uapi --user=reaqfvmy --output=json DomainInfo list_domains | grep -q "discovery.oobcreative.com"; then
-              /usr/local/cpanel/bin/uapi --user=reaqfvmy --output=jsonpretty SubDomain addsubdomain domain=discovery rootdomain=oobcreative.com dir=discovery.oobcreative.com canoff=1
-            fi
-            mkdir -p /home1/reaqfvmy/discovery.oobcreative.com
-          '
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'mkdir -p /home1/reaqfvmy/discovery.oobcreative.com'
 
       - name: Deploy frontend
         env:
