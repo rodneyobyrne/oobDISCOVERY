@@ -3,7 +3,12 @@ return [
     'allowed_origins' => [
         'https://discovery.oobcreative.com',
     ],
+    'allowed_client_ids' => ['varetto'],
     'max_payload_bytes' => 262144,
+    'rate_limit' => [
+        'max_requests' => 12,
+        'window_seconds' => 900,
+    ],
     'database' => [
         'host' => 'localhost',
         'name' => 'reaqfvmy_oobdisc',

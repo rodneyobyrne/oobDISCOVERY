@@ -6,6 +6,8 @@ export const systemConfig = {
   submissionEndpoint: "https://api.oobcreative.com/discovery/submit/",
   allowedProductionOrigin: "https://discovery.oobcreative.com",
   allowJsonBackup: true,
-  estimatedMinutes: "25–40",
+  estimatedMinutes: "35–55",
+  submissionTimeoutMs: 25000,
+  draftRetentionDays: 14,
   dictationNoticeKey: "oobdiscovery-dictation-notice-v1"
 };

@@ -12,15 +12,16 @@ Demographics, diagnoses, credentials, modalities, and search behavior may later 
 
 ## Discovery sequence
 
-1. **Clinician observation** — capture what the clinician repeatedly sees and hears.
-2. **Patient-situation recognition** — expose working archetypes without forcing a fixed persona choice.
-3. **Fit separation** — separately capture capability, strong fit, caseload desire, marketing priority, and referral boundaries.
-4. **Lived-language detail** — collect preclinical language, fears, objections, trust requirements, action moments, and desired change.
-5. **Practice validation** — capture credentials, services, scope, availability, philosophy, and constraints.
-6. **Pattern analysis** — cluster recurring structures across source responses.
-7. **Persona hypotheses** — produce candidate audiences, not final truths.
-8. **External validation** — compare against intake language, search behavior, referral patterns, patient/prospective-patient research, and later website behavior where appropriate.
-9. **Human approval** — decide what becomes public strategy.
+1. **Respondent perspective** — distinguish clinical judgment from owner/business judgment before comparing answers.
+2. **Clinician observation** — capture what the clinician repeatedly sees and hears.
+3. **Patient-situation recognition** — expose working archetypes without forcing a fixed persona choice.
+4. **Fit separation** — separately capture capability, strong fit, caseload desire, marketing priority, and referral boundaries.
+5. **Lived-language detail** — separate reported observations from informed respondent hypotheses about fears, objections, trust requirements, action moments, and desired change.
+6. **Practice validation** — capture credentials, services, scope, availability, philosophy, and constraints.
+7. **Pattern analysis** — cluster recurring structures across source responses.
+8. **Persona hypotheses** — produce candidate audiences, not final truths.
+9. **External validation** — compare against intake language, search behavior, referral patterns, patient/prospective-patient research, and later website behavior where appropriate.
+10. **Human approval** — decide what becomes public strategy.
 
 ## Why the archetype library is not a persona selector
 
@@ -38,11 +39,11 @@ These are different claims:
 - **Website priority** — the practice wants its communication to actively help this person recognize themselves and inquire.
 - **Refer out** — the practice should not encourage this inquiry.
 
-The interface intentionally warns when a situation is marked as a website priority without also being marked as a strong fit.
+The interface intentionally warns when a situation is marked as a website priority without also being marked as a strong fit. The respondent can confirm and submit that distinction when it is intentional.
 
 ## Source integrity
 
-Clinician answers are source evidence. LLM analysis belongs downstream and should be stored separately.
+Professional answers are source evidence, but not every answer has the same evidentiary status. The questionnaire labels recurring observations separately from informed respondent hypotheses. LLM analysis belongs downstream and should be stored separately.
 
 Never rewrite the original submission in place. Preserve enough version information to know exactly which questionnaire generated it.
 

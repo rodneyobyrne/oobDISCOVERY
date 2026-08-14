@@ -18,10 +18,12 @@ The public-facing form begins with recognizable patient situations and clinician
 - Draft saving: browser `localStorage`.
 - Microphone dictation: browser SpeechRecognition when available.
 - Submission contract: implemented.
-- Production API/database: **not yet connected**.
-- Custom domain: **not yet configured**. Do not add a `CNAME` file until DNS and Pages are ready.
+- Production API/database: connected at `https://api.oobcreative.com/discovery/submit/`.
+- Custom domain: active at `https://discovery.oobcreative.com` with HTTPS enforced.
+- Submission retries: idempotent through a draft-stable submission ID.
+- Draft retention: local browser drafts expire after 14 days and can be cleared manually.
 
-Until a production submission endpoint is configured, the form will not present itself as successfully submitted. A JSON backup can be downloaded manually for testing.
+A JSON backup can be downloaded before submission. Backups are unencrypted and should be handled carefully.
 
 ## Architecture
 
@@ -35,19 +37,19 @@ GitHub Pages
                                 +--> POST submission JSON
                                          |
                                          v
-                              Bluehost API (planned)
+                              Bluehost API
                                          |
                                          v
-                              private database (planned)
+                              private database
 ```
 
-The recommended production endpoint is conceptually:
+The production endpoint is:
 
 ```text
 https://api.oobcreative.com/discovery/submit
 ```
 
-The API URL is intentionally configuration-driven and blank in the current repository.
+The API URL remains configuration-driven in `src/system-config.js`.
 
 ## Local preview
 
