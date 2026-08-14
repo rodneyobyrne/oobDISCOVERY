@@ -1,7 +1,7 @@
 export const systemConfig = {
   system: "oobDISCOVERY",
   discoveryType: "clinician",
-  version: "0.2.1",
+  version: "0.2.2",
   storageKey: "oobdiscovery-clinician-draft-v0.2",
   submissionEndpoint: "https://api.oobcreative.com/discovery/submit/",
   allowedProductionOrigin: "https://discovery.oobcreative.com",
@@ -9,5 +9,7 @@ export const systemConfig = {
   estimatedMinutes: "about 20",
   submissionTimeoutMs: 25000,
   draftRetentionDays: 14,
+  dictationInitialTimeoutMs: 6000,
+  dictationSilenceTimeoutMs: 1800,
   dictationNoticeKey: "oobdiscovery-dictation-notice-v1"
 };
