@@ -291,12 +291,6 @@ try {
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
     );
 
-    $existing = $pdo->prepare('SELECT submission_id FROM discovery_submissions WHERE submission_id = :submission_id LIMIT 1');
-    $existing->execute([':submission_id' => $submissionId]);
-    if ($existing->fetchColumn() !== false) {
-        respond(200, ['ok' => true, 'submissionId' => $submissionId, 'duplicate' => true, 'storedAt' => gmdate('c')]);
-    }
-
     $canonicalPayload = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     $statement = $pdo->prepare('INSERT INTO discovery_submissions (submission_id, discovery_type, client_id, respondent_name, respondent_email, questionnaire_version, payload_json) VALUES (:submission_id, :discovery_type, :client_id, :respondent_name, :respondent_email, :questionnaire_version, :payload_json)');
     $statement->execute([
