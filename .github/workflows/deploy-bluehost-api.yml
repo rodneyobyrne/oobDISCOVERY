@@ -2,16 +2,25 @@ name: Deploy Bluehost API
 
 on:
   workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "server/api/**"
+      - ".github/workflows/deploy-bluehost-api.yml"
 
 permissions:
   contents: read
+
+concurrency:
+  group: deploy-bluehost-api
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Prepare SSH
         env:
