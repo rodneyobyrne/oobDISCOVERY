@@ -1,0 +1,9 @@
+<?php
+declare(strict_types=1);
+
+return [
+    // Configure these through repository secrets during deployment.
+    'username' => 'REPLACE_AT_DEPLOY_TIME',
+    'password_hash' => 'REPLACE_WITH_PASSWORD_HASH',
+    'timezone' => 'America/Denver',
+];
