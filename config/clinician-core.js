@@ -49,7 +49,8 @@ export const clinicianCore = {
     {
       number: 12,
       key: "serviceFit",
-      label: "Which Varetto services could help this person?"
+      label: "Why could Varetto be a strong fit for this person, and which services could help?",
+      help: "Note relevant clinician experience, strengths, interests, or approaches."
     },
     {
       number: 13,
@@ -60,7 +61,8 @@ export const clinicianCore = {
     {
       number: 14,
       key: "referralBoundary",
-      label: "When would this person need a different provider or level of care?"
+      label: "What could make this work a weaker fit, frustrating, or outside Varetto’s scope?",
+      help: "Note when this person would need a different provider or level of care."
     }
   ]
 };
