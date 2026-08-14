@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://discovery.oobcreative.com/schema/clinician-submission-v1.json",
+  "title": "oobDISCOVERY Clinician Submission",
+  "type": "object",
+  "required": ["submissionId", "system", "discoveryType", "questionnaireVersion", "client", "respondent", "timing", "archetypes", "patientPatterns", "narrative", "sourceIntegrity"],
+  "properties": {
+    "submissionId": { "type": "string", "minLength": 1 },
+    "system": { "const": "oobDISCOVERY" },
+    "discoveryType": { "const": "clinician" },
+    "systemVersion": { "type": "string" },
+    "questionnaireVersion": { "type": "string" },
+    "client": {
+      "type": "object",
+      "required": ["id", "label"],
+      "properties": { "id": {"type":"string"}, "label": {"type":"string"} },
+      "additionalProperties": false
+    },
+    "respondent": {
+      "type": "object",
+      "required": ["name", "email", "role"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "email": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "timing": {
+      "type": "object",
+      "required": ["startedAt", "generatedAt"],
+      "properties": {
+        "startedAt": { "type": "string" },
+        "generatedAt": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "archetypes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "situation", "relationship", "caseload", "websitePriority", "note"],
+        "properties": {
+          "id": {"type":"string"}, "title": {"type":"string"}, "situation": {"type":"string"},
+          "relationship": {"enum":["", "can-serve", "strong-fit", "refer", "unsure"]},
+          "caseload": {"enum":["", "more", "neutral", "less"]},
+          "websitePriority": {"enum":["", "yes", "no"]},
+          "note": {"type":"string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "patientPatterns": { "type": "array", "items": { "type": "object", "additionalProperties": {"type":"string"} } },
+    "narrative": { "type": "object", "additionalProperties": { "type": "string" } },
+    "sourceIntegrity": {
+      "type": "object",
+      "required": ["responseType", "patientIdentifyingInformationRequested", "interpretationIncluded"],
+      "properties": {
+        "responseType": { "const": "clinician-self-report" },
+        "patientIdentifyingInformationRequested": { "const": false },
+        "interpretationIncluded": { "const": false }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

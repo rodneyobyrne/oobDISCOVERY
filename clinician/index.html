@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="oobCREATIVE Clinician Discovery">
+  <title>Clinician Discovery | oobCREATIVE</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../" aria-label="oobCREATIVE Discovery home">
+      <span class="brand-oob">oob</span><span class="brand-creative">CREATIVE</span>
+      <span class="brand-sub">DISCOVERY</span>
+    </a>
+    <span class="header-context">Clinician</span>
+  </header>
+  <main id="app" class="form-shell" aria-live="polite"><noscript>This discovery form requires JavaScript.</noscript></main>
+  <dialog id="dictation-notice" class="dialog">
+    <form method="dialog">
+      <p class="eyebrow">Before using dictation</p>
+      <h2>Talk naturally. Keep patient details anonymous.</h2>
+      <p>The microphone feature uses speech recognition provided by your browser or device. Depending on the browser, audio may be processed by the platform's speech service. Please do not include patient names or identifying details.</p>
+      <div class="dialog-actions">
+        <button value="cancel" class="button secondary">Not now</button>
+        <button value="continue" class="button">Continue with microphone</button>
+      </div>
+    </form>
+  </dialog>
+  <script type="module" src="../src/app.js"></script>
+</body>
+</html>
