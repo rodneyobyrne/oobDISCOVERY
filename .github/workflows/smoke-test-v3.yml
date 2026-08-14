@@ -1,0 +1,68 @@
+name: Smoke Test V3 Submission
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/smoke-test-v3.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit current v3 payload
+        run: |
+          set -euo pipefail
+          submission_id="smoke-v3-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          jq -n \
+            --arg submissionId "$submission_id" \
+            --arg now "$now" \
+            '{
+              submissionId: $submissionId,
+              system: "oobDISCOVERY",
+              discoveryType: "clinician",
+              systemVersion: "0.2.2",
+              questionnaireVersion: "varetto-2026-08-v3",
+              client: {id: "varetto", label: "Varetto Recovery"},
+              respondent: {name: "Automated v3 smoke test", email: ""},
+              timing: {startedAt: $now, generatedAt: $now},
+              services: {offered: ["Individual therapy"], recipients: ["Someone beginning to question their substance use"], boundaries: "Synthetic system test only."},
+              audiences: [],
+              patientPatterns: [],
+              narrative: {searchLanguage: "", recognitionNeed: "", languageToAvoid: "", honestPromise: "Synthetic system test only."},
+              sourceIntegrity: {
+                responseType: "stakeholder-discovery-response",
+                patientIdentifyingInformationRequested: false,
+                interpretationIncluded: false,
+                respondentHypothesisIncluded: true,
+                evidenceModel: "stakeholder-observation-and-professional-judgment"
+              }
+            }' > /tmp/payload.json
+
+          status=$(curl --silent --show-error \
+            --output /tmp/submit-response \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Origin: https://discovery.oobcreative.com' \
+            --header 'Content-Type: application/json' \
+            --data-binary @/tmp/payload.json \
+            https://api.oobcreative.com/discovery/submit/)
+          cat /tmp/submit-response
+          test "$status" = "201"
+          jq -e --arg id "$submission_id" '.ok == true and .submissionId == $id' /tmp/submit-response >/dev/null
+
+          duplicate_status=$(curl --silent --show-error \
+            --output /tmp/duplicate-response \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Origin: https://discovery.oobcreative.com' \
+            --header 'Content-Type: application/json' \
+            --data-binary @/tmp/payload.json \
+            https://api.oobcreative.com/discovery/submit/)
+          cat /tmp/duplicate-response
+          test "$duplicate_status" = "200"
+          jq -e '.ok == true and .duplicate == true' /tmp/duplicate-response >/dev/null
