@@ -135,7 +135,7 @@ function render() {
           <legend><span class="question-number">2</span>Who can receive those services?</legend>
           ${checkboxList("recipient", config.recipientOptions)}
         </fieldset>
-        ${narrativeField("practicalLimits", "Are there important practical or clinical limits on who Varetto can serve?", "Consider age, location, licensure, in-person or virtual availability, payment, scheduling, stability, and level of care.", 3, "3")}
+        ${narrativeField("practicalLimits", "What else should I understand about the services, availability, or limits?", "Add any service not listed. Consider age, location, licensure, in-person or virtual availability, payment, scheduling, stability, and level of care.", 3, "3")}
       </section>
 
       <section class="form-section" data-section>
