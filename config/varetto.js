@@ -1,31 +1,68 @@
 export const varettoConfig = {
   clientId: "varetto",
-  clientLabel: "Varetto",
-  questionnaireVersion: "varetto-2026-08-v2",
+  clientLabel: "Varetto Recovery",
+  questionnaireVersion: "varetto-2026-08-v3",
   intro: {
-    title: "Help me understand the people Varetto can help especially well.",
-    lead: "I’ve started developing early audience and persona hypotheses from our conversations, my understanding of your experience, what I’ve learned about behavioral health and recovery, and what I know about Alan’s House. This is a chance to strengthen, challenge, or redirect that thinking with what you have actually seen in the work.",
-    purpose: "The goal is not to build a long list of everything Varetto could technically offer. I’m looking for patterns: people the practice understands well, situations where a strong therapeutic relationship tends to develop, work where progress is repeatedly possible, boundaries that matter, and the language people use before they have clinical terminology for what they are experiencing."
+    title: "Help me understand who Varetto Therapy is built to help.",
+    lead: "Your answers will help define the therapy services Varetto will offer and the people the new website should speak to most clearly.",
+    purpose: "Begin with what people experience in daily life—not with diagnoses, credentials, or treatment terminology. I will use your answers to identify audience patterns, connect those patterns to appropriate clinical concerns, and develop patient-centered website content."
   },
-  ownerQuestions: [
-    ["businessOutcome", "What needs to become true for Varetto’s clinical practice to be a successful and sustainable expansion?"],
-    ["strategicAudience", "Which people or referral situations are most important for the practice to reach first—and why?"],
-    ["demandVsFit", "Where do you see demand that may not match Varetto’s strongest work, capacity, or desired direction?"],
-    ["growthConstraint", "What capacity, staffing, payer, operational, or reputation constraint should shape what the website promises?"],
-    ["launchSuccess", "Six months after launch, what evidence would tell you the website is attracting the right inquiries?"]
+  serviceOptions: [
+    { id: "individual", label: "Individual therapy" },
+    { id: "couples", label: "Couples therapy" },
+    { id: "family", label: "Family therapy" },
+    { id: "group", label: "Group therapy" },
+    { id: "substance-assessment", label: "Substance use assessment" },
+    { id: "mental-health-assessment", label: "Mental health assessment" },
+    { id: "co-occurring", label: "Therapy for substance use and co-occurring concerns" },
+    { id: "continuing-care", label: "Continuing-care therapy following treatment" },
+    { id: "recurrence-support", label: "Recurrence or relapse-response support" },
+    { id: "family-support", label: "Therapy for family members or partners" },
+    { id: "recovery-growth", label: "Recovery maintenance and personal growth" },
+    { id: "other", label: "Other or still being determined" }
   ],
-  archetypes: [
-    { id:"taking-more-than-gives", title:"Something is taking more than it gives.", situation:"I’m beginning to wonder whether drinking or using is costing me more than I want to admit, even though my life has not completely fallen apart." },
-    { id:"not-sure-treatment", title:"I don’t like what I’m doing, but I’m not sure I need treatment.", situation:"I’m uncomfortable with my behavior and the consequences around it, but labels such as addiction or treatment feel too big, too final, or not quite like me." },
-    { id:"change-relationship-not-abstinence", title:"I want something to change without having the ending decided for me.", situation:"I want to change my relationship with substances, but I’m not yet sure whether abstinence is right for me and I do not want someone deciding that before understanding me." },
-    { id:"functioning-minimization", title:"I’m functioning, so I keep telling myself it can’t be that serious.", situation:"Work, family, or responsibilities are still getting done, which makes it easier to minimize patterns that are becoming harder to control or ignore." },
-    { id:"sober-not-solved", title:"I’m sober, but sobriety didn’t solve everything.", situation:"Substance use has changed, but anxiety, anger, shame, isolation, relationships, trauma, identity, or other patterns are still making life difficult." },
-    { id:"understand-repeat", title:"I understand the pattern. I still keep repeating it.", situation:"I can explain why I do what I do, and I may have spent years thinking or talking about it, but insight has not translated into meaningful change." },
-    { id:"substance-connected-distress", title:"The substance use is tangled up with something else.", situation:"Trauma, anxiety, depression, shame, relationship strain, or chronic stress seem connected to how I use substances or why change is difficult." },
-    { id:"treatment-ended", title:"Treatment ended. Now what?", situation:"I’m leaving a treatment program or another structured level of care and I’m unsure how to carry change into ordinary life or what support should come next." },
-    { id:"therapy-no-sober-living", title:"I want therapy. I don’t need sober living.", situation:"I want meaningful clinical support around substance use, recovery, mental health, or related patterns without living in a recovery residence." },
-    { id:"therapy-plus-structure", title:"I need clinical help and a structured place to live.", situation:"Therapy alone may not be enough right now. I may benefit from clinical support while also living in an environment that supports recovery and accountability." },
-    { id:"treatment-fatigue", title:"I’ve tried help before and I’m not sure I trust the process anymore.", situation:"I have treatment or therapy experience, but something did not fit, did not last, or left me wary of repeating another version of the same experience." },
-    { id:"loved-one", title:"Someone I love is using, and I don’t know what helping means anymore.", situation:"I’m frightened, exhausted, angry, or confused by another person’s substance use and I’m struggling to understand what I can change, what I cannot, and how to respond." }
+  recipientOptions: [
+    { id: "questioning-use", label: "Someone beginning to question their substance use" },
+    { id: "ambivalent", label: "Someone who wants change but feels uncertain about stopping" },
+    { id: "currently-using", label: "Someone currently using substances" },
+    { id: "preparing-treatment", label: "Someone preparing to enter treatment" },
+    { id: "leaving-treatment", label: "Someone transitioning from residential or intensive treatment" },
+    { id: "early-recovery", label: "Someone in early recovery" },
+    { id: "established-recovery", label: "Someone established in recovery" },
+    { id: "after-recurrence", label: "Someone returning after a recurrence or relapse" },
+    { id: "affected-other", label: "Someone affected by another person's substance use" },
+    { id: "couples-families", label: "Couples or families" },
+    { id: "other", label: "Other or still being determined" }
+  ],
+  audienceSituations: [
+    { id: "questioning-control", title: "Questioning whether substance use is becoming a problem", situation: "Something is beginning to feel harder to control or easier to hide, even though life may not have completely fallen apart." },
+    { id: "ambivalent-change", title: "Wanting change but feeling uncertain about stopping", situation: "The person wants something to change without having the ending decided before they feel understood." },
+    { id: "functioning-privately-struggling", title: "Functioning outwardly while struggling privately", situation: "Work, family, or responsibilities are still getting done, but maintaining that appearance is becoming exhausting." },
+    { id: "transitioning-treatment", title: "Transitioning out of treatment", situation: "Structure is ending, ordinary life is returning, and the person is unsure how to carry change forward." },
+    { id: "early-recovery", title: "Struggling in early recovery", situation: "Substance use has changed, but emotions, relationships, routines, or identity have not caught up." },
+    { id: "after-recurrence", title: "Returning after recurrence or relapse", situation: "The person is discouraged or ashamed and may fear that asking for help means starting over or admitting failure." },
+    { id: "distress-after-stopping", title: "Stopping substance use does not resolve the underlying distress", situation: "Anxiety, sadness, anger, memories, sleeplessness, restlessness, or other difficulties become more visible when use decreases." },
+    { id: "co-occurring-recovery", title: "Managing mental-health concerns alongside recovery", situation: "Anxiety, depression, trauma, grief, sleep, attention, pain, or another concern is intertwined with substance use or recovery." },
+    { id: "relationship-repair", title: "Rebuilding relationships affected by substance use", situation: "Trust, communication, boundaries, intimacy, or family roles have been shaped by substance use and its consequences." },
+    { id: "family-seeking-help", title: "A family member or partner seeking help", situation: "Someone is worried, exhausted, angry, or confused by another person's substance use and no longer knows what helping means." },
+    { id: "recovery-identity-purpose", title: "Stable in recovery but struggling with identity, relationships, or purpose", situation: "The immediate crisis is quieter, but building a meaningful and sustainable life remains difficult." },
+    { id: "other", title: "Another important audience situation", situation: "Use the response fields to describe an audience that is not represented above." }
+  ],
+  conditionOptions: [
+    { id: "alcohol-use", label: "Alcohol use" },
+    { id: "opioid-use", label: "Opioid use" },
+    { id: "stimulant-use", label: "Stimulant use" },
+    { id: "cannabis-use", label: "Cannabis use" },
+    { id: "other-substance-use", label: "Another substance-use concern" },
+    { id: "anxiety", label: "Anxiety or chronic stress" },
+    { id: "depression", label: "Depression or mood concerns" },
+    { id: "trauma", label: "Trauma-related distress" },
+    { id: "grief", label: "Grief or loss" },
+    { id: "sleep", label: "Sleep disruption" },
+    { id: "attention", label: "Attention or executive-function difficulty" },
+    { id: "pain", label: "Chronic pain or health-related distress" },
+    { id: "relationships", label: "Relationship or family distress" },
+    { id: "identity", label: "Identity, purpose, or adjustment concerns" },
+    { id: "other", label: "Other or unsure" }
   ]
 };
