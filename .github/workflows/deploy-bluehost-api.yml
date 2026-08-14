@@ -57,7 +57,20 @@ jobs:
             php -l /home1/reaqfvmy/api.oobcreative.com/discovery/submit/index.php
           '
 
-      - name: Verify database connection
+      - name: Apply database migration
+        env:
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+        run: |
+          scp server/tools/migrate-db.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-migrate-db.php"
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
+            php /home1/reaqfvmy/oob-discovery-migrate-db.php
+            code=$?
+            rm -f /home1/reaqfvmy/oob-discovery-migrate-db.php
+            exit $code
+          '
+
+      - name: Verify database storage contract
         env:
           BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
           BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
