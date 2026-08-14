@@ -19,11 +19,13 @@ The form confirms launch services, asks respondents to choose up to three priori
 - Microphone dictation: browser SpeechRecognition when available.
 - Submission contract: implemented.
 - Production API/database: connected at `https://api.oobcreative.com/discovery/submit/`.
+- Protected results workspace: implemented at `https://api.oobcreative.com/discovery/results/`.
+- Results exports: exact source JSON and an LLM-ready JSON envelope with provenance and analysis guardrails.
 - Custom domain: active at `https://discovery.oobcreative.com` with HTTPS enforced.
 - Submission retries: idempotent through a draft-stable submission ID.
 - Draft retention: local browser drafts expire after 14 days and can be cleared manually.
 
-A JSON backup can be downloaded before submission. Backups are unencrypted and should be handled carefully.
+JSON files downloaded from the questionnaire or results workspace are unencrypted and should be handled carefully.
 
 ## Architecture
 
@@ -38,18 +40,25 @@ GitHub Pages
                                          |
                                          v
                               Bluehost API
-                                         |
-                                         v
+                                |        |
+                                |        +-- /discovery/results/ (private)
+                                v
                               private database
 ```
 
-The production endpoint is:
+The production submission endpoint is:
 
 ```text
 https://api.oobcreative.com/discovery/submit
 ```
 
-The API URL remains configuration-driven in `src/system-config.js`.
+The results workspace is:
+
+```text
+https://api.oobcreative.com/discovery/results/
+```
+
+See [`docs/RESULTS.md`](docs/RESULTS.md) for access setup and export details. The API URL remains configuration-driven in `src/system-config.js`.
 
 ## Local preview
 
@@ -70,17 +79,19 @@ Do not extend this implementation to collect patient medical records or identifi
 ## Repository structure
 
 ```text
-index.html                         Discovery hub
-clinician/index.html               Therapy discovery form shell
-assets/styles.css                  Shared oobCREATIVE interface styling
-src/app.js                         Form rendering, autosave, dictation, validation, submit
-src/system-config.js               Shared runtime configuration
-config/clinician-core.js           Reusable audience-pattern questions
-config/varetto.js                  Varetto services and audience prompts
-schema/submission.schema.json      Submission data contract
-docs/METHOD.md                     Discovery methodology and guardrails
-docs/DATA-CONNECTION.md            Bluehost/API handoff requirements
-.github/workflows/pages.yml        GitHub Pages deployment workflow
+index.html                                  Discovery hub
+clinician/index.html                        Therapy discovery form shell
+assets/styles.css                           Shared oobCREATIVE interface styling
+src/app.js                                  Form rendering, autosave, dictation, validation, submit
+src/system-config.js                        Shared runtime configuration
+config/clinician-core.js                    Reusable audience-pattern questions
+config/varetto.js                           Varetto services and audience prompts
+schema/submission.schema.json               Submission data contract
+server/api/discovery/results/index.php      Protected results workspace
+docs/METHOD.md                              Discovery methodology and guardrails
+docs/DATA-CONNECTION.md                     Bluehost/API handoff requirements
+docs/RESULTS.md                             Results access and export contract
+.github/workflows/pages.yml                 GitHub Pages deployment workflow
 ```
 
 ## Brand principles carried into this system

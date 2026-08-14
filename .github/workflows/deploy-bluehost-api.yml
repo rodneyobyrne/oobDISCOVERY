@@ -36,25 +36,41 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$BLUEHOST_SSH_HOST" >> ~/.ssh/known_hosts
 
-      - name: Deploy API endpoint
+      - name: Build private results access config
+        env:
+          DISCOVERY_RESULTS_USERNAME: ${{ secrets.DISCOVERY_RESULTS_USERNAME }}
+          DISCOVERY_RESULTS_PASSWORD_HASH: ${{ secrets.DISCOVERY_RESULTS_PASSWORD_HASH }}
+        run: |
+          test -n "$DISCOVERY_RESULTS_USERNAME"
+          test -n "$DISCOVERY_RESULTS_PASSWORD_HASH"
+          php -r '$config = ["username" => getenv("DISCOVERY_RESULTS_USERNAME"), "password_hash" => getenv("DISCOVERY_RESULTS_PASSWORD_HASH"), "timezone" => "America/Denver"]; file_put_contents("/tmp/oob-discovery-results.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n");'
+          php -l /tmp/oob-discovery-results.php
+
+      - name: Deploy API endpoints and results workspace
         env:
           BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
           BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
         run: |
           test -n "$BLUEHOST_SSH_USER"
-          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'mkdir -p /home1/reaqfvmy/api.oobcreative.com/discovery/submit'
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'mkdir -p /home1/reaqfvmy/api.oobcreative.com/discovery/submit /home1/reaqfvmy/api.oobcreative.com/discovery/results'
           scp server/api/discovery/submit/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/submit/index.php"
+          scp server/api/discovery/results/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/results/index.php"
+          scp /tmp/oob-discovery-results.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-results.php"
 
-      - name: Verify private config and PHP
+      - name: Verify private configs and PHP
         env:
           BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
           BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
         run: |
           ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
             test -f /home1/reaqfvmy/oob-discovery-config.php &&
-            chmod 600 /home1/reaqfvmy/oob-discovery-config.php &&
+            test -f /home1/reaqfvmy/oob-discovery-results.php &&
+            chmod 600 /home1/reaqfvmy/oob-discovery-config.php /home1/reaqfvmy/oob-discovery-results.php &&
             test "$(stat -c %a /home1/reaqfvmy/oob-discovery-config.php)" = "600" &&
-            php -l /home1/reaqfvmy/api.oobcreative.com/discovery/submit/index.php
+            test "$(stat -c %a /home1/reaqfvmy/oob-discovery-results.php)" = "600" &&
+            php -l /home1/reaqfvmy/api.oobcreative.com/discovery/submit/index.php &&
+            php -l /home1/reaqfvmy/api.oobcreative.com/discovery/results/index.php &&
+            php -l /home1/reaqfvmy/oob-discovery-results.php
           '
 
       - name: Verify database storage contract
