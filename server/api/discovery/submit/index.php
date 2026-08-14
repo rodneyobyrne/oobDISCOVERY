@@ -42,6 +42,40 @@ function requireString(array $source, string $key, int $maxLength, array &$error
     return $value;
 }
 
+function enforceRateLimit(int $maxRequests, int $windowSeconds, string $requestId): void
+{
+    $directory = rtrim(sys_get_temp_dir(), '/') . '/oobdiscovery-rate';
+    if (!is_dir($directory) && !@mkdir($directory, 0700, true) && !is_dir($directory)) {
+        error_log('[oobDISCOVERY][' . $requestId . '] Rate-limit directory unavailable.');
+        fail(503, 'Submission service is temporarily unavailable.', $requestId);
+    }
+    $key = hash('sha256', (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+    $handle = @fopen($directory . '/' . $key . '.json', 'c+');
+    if ($handle === false || !flock($handle, LOCK_EX)) {
+        if (is_resource($handle)) fclose($handle);
+        fail(503, 'Submission service is temporarily unavailable.', $requestId);
+    }
+    $rawState = stream_get_contents($handle);
+    $state = json_decode($rawState ?: '{}', true);
+    $now = time();
+    $started = (int)($state['started'] ?? 0);
+    $count = (int)($state['count'] ?? 0);
+    if ($started === 0 || $now - $started >= $windowSeconds) { $started = $now; $count = 0; }
+    if ($count >= $maxRequests) {
+        $retryAfter = max(1, $windowSeconds - ($now - $started));
+        flock($handle, LOCK_UN);
+        fclose($handle);
+        header('Retry-After: ' . $retryAfter);
+        fail(429, 'Too many submission attempts. Please wait and try again.', $requestId);
+    }
+    rewind($handle);
+    ftruncate($handle, 0);
+    fwrite($handle, json_encode(['started' => $started, 'count' => $count + 1]));
+    fflush($handle);
+    flock($handle, LOCK_UN);
+    fclose($handle);
+}
+
 $home = rtrim((string)(getenv('HOME') ?: '/home1/reaqfvmy'), '/');
 $configPath = $home . '/oob-discovery-config.php';
 if (!is_file($configPath)) {
@@ -75,6 +109,9 @@ if ($origin === '' || !in_array($origin, $allowedOrigins, true)) fail(403, 'Orig
 $isHttps = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 if (!$isHttps) fail(400, 'HTTPS is required.', $requestId);
 
+$rateLimit = $config['rate_limit'] ?? [];
+enforceRateLimit(max(1, (int)($rateLimit['max_requests'] ?? 12)), max(60, (int)($rateLimit['window_seconds'] ?? 900)), $requestId);
+
 $contentType = strtolower((string)($_SERVER['CONTENT_TYPE'] ?? ''));
 if (strpos($contentType, 'application/json') !== 0) fail(415, 'Content-Type must be application/json.', $requestId);
 
@@ -98,6 +135,7 @@ $submissionId = requireString($payload, 'submissionId', 80, $errors);
 $system = requireString($payload, 'system', 40, $errors);
 $discoveryType = requireString($payload, 'discoveryType', 40, $errors);
 $questionnaireVersion = requireString($payload, 'questionnaireVersion', 80, $errors);
+$usesV2Contract = substr($questionnaireVersion, -3) === '-v2';
 if ($system !== 'oobDISCOVERY') $errors[] = 'system is invalid.';
 if ($discoveryType !== 'clinician') $errors[] = 'discoveryType is invalid.';
 
@@ -105,21 +143,34 @@ $client = $payload['client'] ?? null;
 if (!isAssocArray($client)) { $errors[] = 'client must be an object.'; $client = []; }
 $clientId = requireString($client, 'id', 80, $errors);
 requireString($client, 'label', 160, $errors);
+$allowedClientIds = $config['allowed_client_ids'] ?? [];
+if ($allowedClientIds !== [] && !in_array($clientId, $allowedClientIds, true)) $errors[] = 'client.id is invalid.';
 
 $respondent = $payload['respondent'] ?? null;
 if (!isAssocArray($respondent)) { $errors[] = 'respondent must be an object.'; $respondent = []; }
 $respondentName = requireString($respondent, 'name', 160, $errors);
 $respondentEmail = requireString($respondent, 'email', 254, $errors, true);
-requireString($respondent, 'role', 160, $errors, true);
+$respondentRole = requireString($respondent, 'role', 160, $errors, !$usesV2Contract);
+$respondentPerspective = $usesV2Contract
+    ? requireString($respondent, 'perspective', 40, $errors)
+    : (is_string($respondent['perspective'] ?? null) ? trim($respondent['perspective']) : 'clinician');
 if ($respondentEmail !== '' && filter_var($respondentEmail, FILTER_VALIDATE_EMAIL) === false) $errors[] = 'respondent.email is invalid.';
+if (!in_array($respondentPerspective, ['clinician', 'owner', 'both'], true)) $errors[] = 'respondent.perspective is invalid.';
 
 $timing = $payload['timing'] ?? null;
 if (!isAssocArray($timing)) $errors[] = 'timing must be an object.';
-else { requireString($timing, 'startedAt', 64, $errors); requireString($timing, 'generatedAt', 64, $errors); }
+else {
+    $startedAt = requireString($timing, 'startedAt', 64, $errors);
+    $generatedAt = requireString($timing, 'generatedAt', 64, $errors);
+    foreach (['startedAt' => $startedAt, 'generatedAt' => $generatedAt] as $key => $value) {
+        if ($value !== '' && strtotime($value) === false) $errors[] = 'timing.' . $key . ' is invalid.';
+    }
+}
 
 $archetypes = $payload['archetypes'] ?? null;
 if (!is_array($archetypes)) $errors[] = 'archetypes must be an array.';
 else {
+    if (count($archetypes) < 1 || count($archetypes) > 50) $errors[] = 'archetypes must contain between 1 and 50 items.';
     $relationshipAllowed = ['', 'can-serve', 'strong-fit', 'refer', 'unsure'];
     $caseloadAllowed = ['', 'more', 'neutral', 'less'];
     $priorityAllowed = ['', 'yes', 'no'];
@@ -128,6 +179,10 @@ else {
         foreach (['id', 'title', 'situation', 'relationship', 'caseload', 'websitePriority', 'note'] as $key) {
             if (!array_key_exists($key, $item) || !is_string($item[$key])) $errors[] = 'archetypes[' . $i . '].' . $key . ' must be a string.';
         }
+        if (isset($item['id']) && strlen($item['id']) > 80) $errors[] = 'archetypes[' . $i . '].id is too long.';
+        if (isset($item['title']) && strlen($item['title']) > 240) $errors[] = 'archetypes[' . $i . '].title is too long.';
+        if (isset($item['situation']) && strlen($item['situation']) > 1600) $errors[] = 'archetypes[' . $i . '].situation is too long.';
+        if (isset($item['note']) && strlen($item['note']) > 10000) $errors[] = 'archetypes[' . $i . '].note is too long.';
         if (isset($item['relationship']) && !in_array($item['relationship'], $relationshipAllowed, true)) $errors[] = 'archetypes[' . $i . '].relationship is invalid.';
         if (isset($item['caseload']) && !in_array($item['caseload'], $caseloadAllowed, true)) $errors[] = 'archetypes[' . $i . '].caseload is invalid.';
         if (isset($item['websitePriority']) && !in_array($item['websitePriority'], $priorityAllowed, true)) $errors[] = 'archetypes[' . $i . '].websitePriority is invalid.';
@@ -137,19 +192,32 @@ else {
 $patientPatterns = $payload['patientPatterns'] ?? null;
 if (!is_array($patientPatterns)) $errors[] = 'patientPatterns must be an array.';
 else foreach ($patientPatterns as $i => $pattern) {
+    if (count($patientPatterns) > 10) { $errors[] = 'patientPatterns may contain at most 10 items.'; break; }
     if (!isAssocArray($pattern)) { $errors[] = 'patientPatterns[' . $i . '] must be an object.'; continue; }
-    foreach ($pattern as $key => $value) if (!is_string($key) || !is_string($value)) { $errors[] = 'patientPatterns[' . $i . '] may contain string values only.'; break; }
+    if (count($pattern) > 40) { $errors[] = 'patientPatterns[' . $i . '] contains too many fields.'; continue; }
+    foreach ($pattern as $key => $value) {
+        if (!is_string($key) || !is_string($value)) { $errors[] = 'patientPatterns[' . $i . '] may contain string values only.'; break; }
+        if (strlen($value) > 10000) { $errors[] = 'patientPatterns[' . $i . '].' . $key . ' is too long.'; break; }
+    }
 }
 
 $narrative = $payload['narrative'] ?? null;
 if (!isAssocArray($narrative)) $errors[] = 'narrative must be an object.';
-else foreach ($narrative as $key => $value) if (!is_string($key) || !is_string($value)) { $errors[] = 'narrative may contain string values only.'; break; }
+else {
+    if (count($narrative) > 100) $errors[] = 'narrative contains too many fields.';
+    foreach ($narrative as $key => $value) {
+        if (!is_string($key) || !is_string($value)) { $errors[] = 'narrative may contain string values only.'; break; }
+        if (strlen($value) > 10000) { $errors[] = 'narrative.' . $key . ' is too long.'; break; }
+    }
+}
 
 $sourceIntegrity = $payload['sourceIntegrity'] ?? null;
 if (!isAssocArray($sourceIntegrity)
     || ($sourceIntegrity['responseType'] ?? null) !== 'clinician-self-report'
     || ($sourceIntegrity['patientIdentifyingInformationRequested'] ?? null) !== false
-    || ($sourceIntegrity['interpretationIncluded'] ?? null) !== false) {
+    || ($sourceIntegrity['interpretationIncluded'] ?? null) !== false
+    || ($usesV2Contract && ($sourceIntegrity['respondentHypothesisIncluded'] ?? null) !== true)
+    || ($usesV2Contract && ($sourceIntegrity['evidenceModel'] ?? null) !== 'reported-observation-and-informed-hypothesis')) {
     $errors[] = 'sourceIntegrity is invalid.';
 }
 
@@ -164,6 +232,12 @@ try {
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
     );
 
+    $existing = $pdo->prepare('SELECT submission_id FROM discovery_submissions WHERE submission_id = :submission_id LIMIT 1');
+    $existing->execute([':submission_id' => $submissionId]);
+    if ($existing->fetchColumn() !== false) {
+        respond(200, ['ok' => true, 'submissionId' => $submissionId, 'duplicate' => true, 'storedAt' => gmdate('c')]);
+    }
+
     $canonicalPayload = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     $statement = $pdo->prepare('INSERT INTO discovery_submissions (submission_id, discovery_type, client_id, respondent_name, respondent_email, questionnaire_version, payload_json) VALUES (:submission_id, :discovery_type, :client_id, :respondent_name, :respondent_email, :questionnaire_version, :payload_json)');
     $statement->execute([
@@ -176,7 +250,7 @@ try {
         ':payload_json' => $canonicalPayload,
     ]);
 } catch (PDOException $e) {
-    if ((string)$e->getCode() === '23000') fail(409, 'This submission has already been received.', $requestId);
+    if ((string)$e->getCode() === '23000') respond(200, ['ok' => true, 'submissionId' => $submissionId, 'duplicate' => true, 'storedAt' => gmdate('c')]);
     error_log('[oobDISCOVERY][' . $requestId . '] Database error: ' . $e->getMessage());
     fail(500, 'Submission could not be stored.', $requestId);
 } catch (Throwable $e) {

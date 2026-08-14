@@ -7,6 +7,12 @@ const app = document.querySelector("#app");
 const dictationDialog = document.querySelector("#dictation-notice");
 let activeRecognition = null;
 let startedAt = new Date().toISOString();
+let submissionId = createId();
+let warningsAcknowledged = false;
+
+function createId() {
+  return crypto.randomUUID ? crypto.randomUUID() : `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 const esc = (value = "") => String(value)
   .replaceAll("&", "&amp;")
@@ -15,17 +21,17 @@ const esc = (value = "") => String(value)
   .replaceAll('"', "&quot;")
   .replaceAll("'", "&#039;");
 
-function choiceHTML(name, options, type = "radio") {
+function choiceHTML(name, options, type = "radio", required = false) {
   return `<div class="inline-options">${options.map(option => `
-    <label><input type="${type}" name="${esc(name)}" value="${esc(option.value)}"> ${esc(option.label)}</label>
+    <label><input type="${type}" name="${esc(name)}" value="${esc(option.value)}" ${required ? "required aria-required=\"true\"" : ""}> ${esc(option.label)}</label>
   `).join("")}</div>`;
 }
 
-function narrativeField(id, label, help = "") {
+function narrativeField(id, label, help = "", required = false) {
   return `<div class="field">
-    <label for="${id}">${esc(label)}</label>
+    <label for="${id}" class="${required ? "required" : ""}">${esc(label)}</label>
     ${help ? `<p class="help">${esc(help)}</p>` : ""}
-    <textarea id="${id}" name="${id}" data-narrative></textarea>
+    <textarea id="${id}" name="${id}" data-narrative ${required ? "required aria-required=\"true\"" : ""}></textarea>
     <div class="textarea-tools">
       <button type="button" class="button secondary small dictate" data-target="${id}">Use microphone</button>
       <span class="dictation-state" id="${id}-dictation"></span>
@@ -40,19 +46,19 @@ function renderArchetypes() {
       <p class="situation">${esc(item.situation)}</p>
       <div class="archetype-controls">
         <div class="control-group">
-          <span>Clinical relationship</span>
-          ${choiceHTML(`archetype.${item.id}.relationship`, clinicianCore.relationshipOptions)}
+          <span class="required">Clinical relationship</span>
+          ${choiceHTML(`archetype.${item.id}.relationship`, clinicianCore.relationshipOptions, "radio", true)}
         </div>
         <div class="control-group">
-          <span>Future caseload</span>
-          ${choiceHTML(`archetype.${item.id}.caseload`, clinicianCore.caseloadOptions)}
+          <span class="required">Future caseload / service mix</span>
+          ${choiceHTML(`archetype.${item.id}.caseload`, clinicianCore.caseloadOptions, "radio", true)}
         </div>
         <div class="control-group">
-          <span>Website priority</span>
+          <span class="required">Website priority</span>
           ${choiceHTML(`archetype.${item.id}.market`, [
             { value: "yes", label: "Actively reach" },
             { value: "no", label: "Not a priority" }
-          ])}
+          ], "radio", true)}
         </div>
       </div>
       <div class="field" style="margin-top:14px">
@@ -61,6 +67,20 @@ function renderArchetypes() {
         <div class="textarea-tools"><button type="button" class="button secondary small dictate" data-target="note-${item.id}">Use microphone</button><span class="dictation-state" id="note-${item.id}-dictation"></span></div>
       </div>
     </article>
+  `).join("");
+}
+
+function renderOwnerQuestions() {
+  return (config.ownerQuestions || []).map(([id, label]) => narrativeField(id, label, "", true)).join("");
+}
+
+function renderPatternQuestions(patternId) {
+  return clinicianCore.patternQuestionGroups.map(group => `
+    <div class="pattern-question-group">
+      <p class="pattern-group-label">${esc(group.label)}</p>
+      <p class="help">${esc(group.help)}</p>
+      ${group.questions.map(([key, label]) => narrativeField(`${patternId}-${key}`, label, "", ["turningPoint", "preclinicalLanguage", "trustNeed", "realQuestion"].includes(key))).join("")}
+    </div>
   `).join("");
 }
 
@@ -78,7 +98,8 @@ function render() {
       </div>
       <div class="notice">
         <strong>Please keep examples anonymous.</strong>
-        <p>Describe patterns and situations, but do not include patient names, contact information, dates of birth, or other details that could identify an individual.</p>
+        <p>Describe recurring patterns and situations, but do not include names, contact information, dates of birth, exact dates, unusual combinations of details, or anything else that could identify an individual.</p>
+        <p>Your response is intended for oobCREATIVE and authorized Varetto project participants for audience, service, and website strategy. It is not a patient record or clinical assessment.</p>
       </div>
       ${!systemConfig.submissionEndpoint ? `<div class="runtime-banner"><strong>Setup note:</strong> central data storage is not connected yet. This build is for review and testing. Final submission will be enabled after the private Bluehost endpoint is configured.</div>` : ""}
     </section>
@@ -93,28 +114,34 @@ function render() {
         <div class="section-copy"><p class="eyebrow">1 · You and the practice</p><h2>A little context first.</h2><p>This helps keep the source material attributable without asking the questionnaire to make assumptions from a title or credential.</p></div>
         <div class="field"><label class="required" for="respondentName">Your name</label><input id="respondentName" name="respondent.name" type="text" required></div>
         <div class="field"><label for="respondentEmail">Email</label><input id="respondentEmail" name="respondent.email" type="email"></div>
-        <div class="field"><label for="role">Role / title</label><input id="role" name="respondent.role" type="text"></div>
-        ${narrativeField("practicePurpose", "In your own words, what do you want Varetto's clinical practice to exist to do?")}
-        ${narrativeField("idealInquiry", "What kind of inquiry would make you think, “Yes—this is exactly someone we should be talking with”?", "Describe the person or situation, not just a diagnosis.")}
-        ${narrativeField("wrongFitInquiry", "What kind of inquiry may sound relevant on paper but is actually a poor fit for Varetto?")}
+        <div class="field"><label class="required" for="role">Role / title</label><input id="role" name="respondent.role" type="text" required></div>
+        <div class="field"><label class="required" for="perspective">Perspective for this response</label><select id="perspective" name="respondent.perspective" required><option value="">Choose one</option><option value="clinician">Clinician / clinical leader</option><option value="owner">Practice owner / business leader</option><option value="both">Both clinical and business leadership</option></select><p class="help">This determines which questions you see. It also keeps clinical fit and business priority from being treated as the same judgment.</p></div>
+        ${narrativeField("practicePurpose", "In your own words, what do you want Varetto's clinical practice to exist to do?", "", true)}
+        ${narrativeField("idealInquiry", "What kind of inquiry would make you think, “Yes—this is exactly someone we should be talking with”?", "Describe the person or situation, not just a diagnosis.", true)}
+        ${narrativeField("wrongFitInquiry", "What kind of inquiry may sound relevant on paper but is actually a poor fit for Varetto?", "", true)}
+      </section>
+
+      <section class="form-section perspective-section hidden" data-section data-perspectives="owner,both">
+        <div class="section-copy"><p class="eyebrow">2 · Business direction</p><h2>What should Varetto build toward?</h2><p>These questions are about business priority and responsible growth. They intentionally remain separate from any one clinician’s personal caseload preference.</p></div>
+        ${renderOwnerQuestions()}
       </section>
 
       <section class="form-section" data-section>
-        <div class="section-copy"><p class="eyebrow">2 · Recognizable patient situations</p><h2>Which of these people do you recognize in your work?</h2><p>These are working hypotheses, not conclusions or service promises. There is no target number. Classify each independently and tell me where the language or assumption is wrong.</p></div>
+        <div class="section-copy"><p class="eyebrow">Patient situations</p><h2>Which of these people belong in Varetto’s work?</h2><p>These are working hypotheses, not conclusions or service promises. Classify every situation independently. Clinical fit, desired service mix, and website priority are separate judgments; disagreement between them is useful.</p></div>
         <div class="archetype-list">${renderArchetypes()}</div>
         ${narrativeField("missingSituations", "Who do you work with regularly—or want to work with—who is not represented above?", "Add as many missing situations as you need.")}
       </section>
 
-      <section class="form-section" data-section>
-        <div class="section-copy"><p class="eyebrow">3 · Your strongest work</p><h2>Where does fit become more than capability?</h2><p>I’m interested in the work that creates real engagement for you and the patient—not simply what falls within scope.</p></div>
-        ${narrativeField("strongestWork", "Where do you believe you do your strongest clinical work? What makes you say that?")}
+      <section class="form-section perspective-section hidden" data-section data-perspectives="clinician,both">
+        <div class="section-copy"><p class="eyebrow">Clinical fit</p><h2>Where does fit become more than capability?</h2><p>I’m interested in work that creates real engagement for you and the patient—not simply what falls within scope. Honest limits improve the strategy; they are not a judgment about a patient’s worthiness of care.</p></div>
+        ${narrativeField("strongestWork", "Where do you believe you do your strongest clinical work? What makes you say that?", "", true)}
         ${narrativeField("energy", "Which kinds of patients, situations, or therapeutic problems tend to create energy and engagement for you?")}
         ${narrativeField("progress", "Where do you repeatedly see meaningful progress? What patterns have you noticed?")}
         ${narrativeField("trust", "With whom do you seem especially able to establish trust or honesty?")}
-        ${narrativeField("strain", "Which work tends to create strain, frustration, weak engagement, or a poorer fit—even if it is technically within your scope?")}
+        ${narrativeField("strain", "Which work tends to create strain, frustration, weak engagement, or a poorer fit—even if it is technically within your scope?", "", true)}
         ${narrativeField("wantMore", "What would you genuinely like more of in your future caseload?")}
         ${narrativeField("wantLess", "What would you like less of in your future caseload?")}
-        ${narrativeField("boundaries", "What clinical, ethical, scope, availability, or personal-interest boundaries should I understand before turning any of this into audience strategy?")}
+        ${narrativeField("boundaries", "What clinical, ethical, scope, availability, or personal-interest boundaries should I understand before turning any of this into audience strategy?", "", true)}
       </section>
 
       <section class="form-section" data-section>
@@ -125,12 +152,12 @@ function render() {
 
       <section class="form-section" data-section>
         <div class="section-copy"><p class="eyebrow">5 · Practice reality</p><h2>What needs to be true in the real practice?</h2><p>This information validates and constrains later strategy. It should not automatically become the website's lead message.</p></div>
-        ${narrativeField("launchServices", "What clinical services are actually expected to be available at launch?")}
+        ${narrativeField("launchServices", "What clinical services are actually expected to be available at launch?", "", true)}
         ${narrativeField("credentials", "Which credentials, licenses, specialties, or professional experience should be understood when evaluating what Varetto can responsibly claim?")}
         ${narrativeField("approaches", "What treatment approaches, philosophies, or modalities materially shape the work?", "Include only what matters for understanding fit—not every technique you can use.")}
         ${narrativeField("recoveryPosition", "How should I understand the relationship among abstinence, harm reduction, self-directed recovery, and Varetto's clinical philosophy?")}
-        ${narrativeField("availability", "What practical realities matter: states served, telehealth/in-person, scheduling, capacity, payer model, ages, formats, or other limitations?")}
-        ${narrativeField("referralBoundary", "When Varetto is not the right place, what kinds of needs should clearly be referred elsewhere?")}
+        ${narrativeField("availability", "What practical realities matter: states served, telehealth/in-person, scheduling, capacity, payer model, ages, formats, or other limitations?", "", true)}
+        ${narrativeField("referralBoundary", "When Varetto is not the right place, what kinds of needs should clearly be referred elsewhere?", "", true)}
       </section>
 
       <section class="form-section" data-section>
@@ -139,9 +166,14 @@ function render() {
       </section>
 
       <div id="validation-output" class="notice hidden"></div>
+      <div class="privacy-confirmation">
+        <label><input type="checkbox" id="privacy-acknowledgment" name="privacyAcknowledgment" value="yes" required> I have kept patient examples anonymous and understand how this response will be used.</label>
+      </div>
       <div class="form-actions">
         <div>
           <button type="button" id="save-backup" class="button secondary">Download response backup</button>
+          <button type="button" id="clear-draft" class="text-button">Clear saved draft</button>
+          <p class="backup-warning">Downloaded backups are unencrypted. Store or share them carefully.</p>
           <div id="status" class="status" role="status"></div>
         </div>
         <button type="submit" id="submit-button" class="button" ${!systemConfig.submissionEndpoint ? "disabled" : ""}>Submit discovery</button>
@@ -152,6 +184,7 @@ function render() {
   wireEvents();
   restoreDraft();
   if (!document.querySelector(".pattern-card")) addPattern();
+  updatePerspective();
   updateProgress();
 }
 
@@ -165,8 +198,8 @@ function addPattern(existing = {}) {
   card.innerHTML = `
     <button type="button" class="button secondary small remove-pattern">Remove</button>
     <p class="eyebrow">Patient pattern ${index + 1}</p>
-    ${narrativeField(`${id}-label`, "Give this person/situation a short working name.")}
-    ${clinicianCore.patternQuestions.map(([key, label]) => narrativeField(`${id}-${key}`, label)).join("")}
+    ${narrativeField(`${id}-label`, "Give this person/situation a short working name.", "", true)}
+    ${renderPatternQuestions(id)}
   `;
   container.append(card);
   card.querySelector(".remove-pattern").addEventListener("click", () => {
@@ -190,12 +223,23 @@ function renumberPatterns() {
 
 function wireEvents() {
   const form = document.querySelector("#discovery-form");
-  form.addEventListener("input", () => { autosave(); updateProgress(); });
-  form.addEventListener("change", () => { autosave(); updateProgress(); });
+  const changed = () => { warningsAcknowledged = false; autosave(); updatePerspective(); updateProgress(); };
+  form.addEventListener("input", changed);
+  form.addEventListener("change", changed);
   form.addEventListener("submit", submitForm);
   document.querySelector("#add-pattern").addEventListener("click", () => { addPattern(); autosave(); updateProgress(); });
   document.querySelector("#save-backup").addEventListener("click", () => downloadJson(buildSubmission(), "draft"));
+  document.querySelector("#clear-draft").addEventListener("click", clearDraft);
   wireDictation(document);
+}
+
+function updatePerspective() {
+  const perspective = document.querySelector("#perspective")?.value || "";
+  document.querySelectorAll("[data-perspectives]").forEach(section => {
+    const visible = section.dataset.perspectives.split(",").includes(perspective);
+    section.classList.toggle("hidden", !visible);
+    section.querySelectorAll("[required]").forEach(field => field.disabled = !visible);
+  });
 }
 
 function wireDictation(scope) {
@@ -281,10 +325,10 @@ function buildSubmission() {
   const named = collectNamedFields();
   const narrative = {};
   Object.entries(named).forEach(([key, value]) => {
-    if (!key.startsWith("archetype.") && !key.startsWith("respondent.")) narrative[key] = value;
+    if (!key.startsWith("archetype.") && !key.startsWith("respondent.") && key !== "privacyAcknowledgment") narrative[key] = value;
   });
   return {
-    submissionId: crypto.randomUUID ? crypto.randomUUID() : `local-${Date.now()}`,
+    submissionId,
     system: systemConfig.system,
     discoveryType: systemConfig.discoveryType,
     systemVersion: systemConfig.version,
@@ -293,7 +337,8 @@ function buildSubmission() {
     respondent: {
       name: named["respondent.name"] || "",
       email: named["respondent.email"] || "",
-      role: named["respondent.role"] || ""
+      role: named["respondent.role"] || "",
+      perspective: named["respondent.perspective"] || ""
     },
     timing: { startedAt, generatedAt: new Date().toISOString() },
     archetypes: collectArchetypes(named),
@@ -302,7 +347,9 @@ function buildSubmission() {
     sourceIntegrity: {
       responseType: "clinician-self-report",
       patientIdentifyingInformationRequested: false,
-      interpretationIncluded: false
+      interpretationIncluded: false,
+      respondentHypothesisIncluded: true,
+      evidenceModel: "reported-observation-and-informed-hypothesis"
     }
   };
 }
@@ -310,11 +357,19 @@ function buildSubmission() {
 function validate(submission) {
   const errors = [];
   const warnings = [];
-  if (!submission.respondent.name.trim()) errors.push("Please add your name.");
+  const visibleRequired = [...document.querySelectorAll("#discovery-form [required]:not([disabled]):not([type=radio])")];
+  const missing = visibleRequired.filter(field => field.type === "checkbox" ? !field.checked : !field.value.trim());
+  if (missing.length) errors.push(`Please complete the ${missing.length} required ${missing.length === 1 ? "response" : "responses"} marked with an asterisk.`);
+  const email = document.querySelector("#respondentEmail");
+  if (email?.value && !email.validity.valid) errors.push("Please enter a valid email address or leave the email field blank.");
+  if (submission.archetypes.some(item => !item.relationship || !item.caseload || !item.websitePriority)) {
+    errors.push("Please classify clinical fit, future service mix, and website priority for every patient situation. Choose “Depends / needs more context” when that is the honest answer.");
+  }
+  if (!submission.patientPatterns.length) errors.push("Please complete at least one patient pattern.");
   submission.archetypes.forEach(item => {
-    if (item.websitePriority === "yes" && item.relationship !== "strong-fit") warnings.push(`“${item.title}” is marked as a website priority but not as a strong clinical fit. Please confirm that distinction is intentional.`);
+    if (item.websitePriority === "yes" && item.relationship !== "strong-fit") warnings.push(`“${item.title}” is marked as a website priority but not as a strong clinical fit. That may be intentional; confirm the distinction before submitting.`);
   });
-  if (submission.archetypes.filter(a => a.websitePriority === "yes").length === 0) warnings.push("No patient situations are marked as website priorities. That may be accurate; confirm before submitting.");
+  if (submission.archetypes.every(a => a.websitePriority !== "yes")) warnings.push("No patient situations are marked as website priorities. That may be accurate; confirm before submitting.");
   return { errors, warnings };
 }
 
@@ -322,7 +377,11 @@ function showValidation({ errors, warnings }) {
   const box = document.querySelector("#validation-output");
   if (!errors.length && !warnings.length) { box.classList.add("hidden"); box.innerHTML = ""; return; }
   box.classList.remove("hidden");
-  box.innerHTML = `${errors.length ? `<strong>Please correct:</strong><ul class="warning-list">${errors.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}${warnings.length ? `<strong>Please review:</strong><ul class="warning-list">${warnings.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}`;
+  box.innerHTML = `${errors.length ? `<strong>Please correct:</strong><ul class="warning-list">${errors.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}${warnings.length ? `<strong>Please review:</strong><ul class="warning-list">${warnings.map(x => `<li>${esc(x)}</li>`).join("")}</ul>${!errors.length && !warningsAcknowledged ? `<button type="button" id="confirm-warnings" class="button secondary small">Submit with these distinctions</button>` : ""}` : ""}`;
+  document.querySelector("#confirm-warnings")?.addEventListener("click", () => {
+    warningsAcknowledged = true;
+    document.querySelector("#discovery-form").requestSubmit();
+  });
   box.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
@@ -331,27 +390,38 @@ async function submitForm(event) {
   const submission = buildSubmission();
   const validation = validate(submission);
   showValidation(validation);
-  if (validation.errors.length || validation.warnings.length) return;
+  if (validation.errors.length || (validation.warnings.length && !warningsAcknowledged)) return;
   if (!systemConfig.submissionEndpoint) { setStatus("Central submission is not connected yet. Download a response backup for testing.", "error"); return; }
+  autosave();
   const submitButton = document.querySelector("#submit-button");
   submitButton.disabled = true;
   setStatus("Submitting…");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), systemConfig.submissionTimeoutMs);
   try {
-    const response = await fetch(systemConfig.submissionEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(submission) });
-    if (!response.ok) throw new Error(`Submission failed (${response.status})`);
+    const response = await fetch(systemConfig.submissionEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(submission), signal: controller.signal });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.requestId ? `Submission failed. Reference ${result.requestId}.` : `Submission failed (${response.status}).`);
     localStorage.removeItem(systemConfig.storageKey);
-    setStatus("Submitted successfully. Thank you.", "success");
+    setStatus(result.duplicate ? "This response had already been received. No duplicate was created." : "Submitted successfully. Thank you.", "success");
     submitButton.textContent = "Submitted";
-  } catch {
+  } catch (error) {
     submitButton.disabled = false;
-    setStatus("Your response was not submitted. Your draft remains saved in this browser.", "error");
+    const message = error.name === "AbortError" ? "The connection timed out." : error.message;
+    setStatus(`${message} Your draft remains saved. Select Submit discovery to retry.`, "error");
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
 function autosave() {
-  const draft = { startedAt, fields: collectNamedFields(), patterns: collectPatterns(), savedAt: new Date().toISOString() };
-  localStorage.setItem(systemConfig.storageKey, JSON.stringify(draft));
-  setStatus("Draft saved in this browser.");
+  const draft = { submissionId, startedAt, fields: collectNamedFields(), patterns: collectPatterns(), savedAt: new Date().toISOString() };
+  try {
+    localStorage.setItem(systemConfig.storageKey, JSON.stringify(draft));
+    setStatus("Draft saved in this browser.");
+  } catch {
+    setStatus("This browser could not save the draft. Download a backup before leaving this page.", "error");
+  }
 }
 
 function restoreDraft() {
@@ -359,6 +429,13 @@ function restoreDraft() {
   if (!raw) return;
   try {
     const draft = JSON.parse(raw);
+    const savedAt = Date.parse(draft.savedAt || "");
+    if (!savedAt || Date.now() - savedAt > systemConfig.draftRetentionDays * 86400000) {
+      localStorage.removeItem(systemConfig.storageKey);
+      setStatus("An expired browser draft was removed.");
+      return;
+    }
+    if (draft.submissionId) submissionId = draft.submissionId;
     if (draft.startedAt) startedAt = draft.startedAt;
     Object.entries(draft.fields || {}).forEach(([name, value]) => {
       document.querySelectorAll(`[name="${CSS.escape(name)}"]`).forEach(el => {
@@ -370,10 +447,16 @@ function restoreDraft() {
   } catch { localStorage.removeItem(systemConfig.storageKey); }
 }
 
+function clearDraft() {
+  if (!window.confirm("Clear the saved draft from this browser? This cannot be undone unless you downloaded a backup.")) return;
+  localStorage.removeItem(systemConfig.storageKey);
+  window.location.reload();
+}
+
 function updateProgress() {
-  const fields = [...document.querySelectorAll("#discovery-form input[type=text], #discovery-form input[type=email], #discovery-form textarea")];
+  const fields = [...document.querySelectorAll("#discovery-form [required]:not([disabled]):not([type=radio])")];
   const radioNames = [...new Set([...document.querySelectorAll("#discovery-form input[type=radio]")].map(x => x.name))];
-  const textDone = fields.filter(f => f.value.trim()).length;
+  const textDone = fields.filter(field => field.type === "checkbox" ? field.checked : field.value.trim()).length;
   const radioDone = radioNames.filter(name => document.querySelector(`[name="${CSS.escape(name)}"]:checked`)).length;
   const total = fields.length + radioNames.length;
   const percent = total ? Math.round(((textDone + radioDone) / total) * 100) : 0;

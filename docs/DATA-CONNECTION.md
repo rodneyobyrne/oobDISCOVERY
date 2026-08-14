@@ -2,9 +2,7 @@
 
 ## Current state
 
-The frontend can construct a complete structured submission but the production API URL is intentionally blank in `src/system-config.js`.
-
-Do not send this form to real respondents until central submission has been tested successfully.
+The production frontend, API, and private MySQL connection are configured. GitHub Pages serves the form at `https://discovery.oobcreative.com/clinician/`; Bluehost serves the submission endpoint.
 
 ## Recommended topology
 
@@ -54,11 +52,11 @@ Return a non-2xx status. Do not return database credentials, SQL errors, filesys
 3. Validate `Origin`; production should allow `https://discovery.oobcreative.com`, not `*`.
 4. Enforce JSON content type and a reasonable payload-size ceiling.
 5. Parse and validate required fields server-side. Browser validation is not security.
-6. Reject duplicate `submissionId` values or make insertion idempotent.
+6. Make insertion idempotent. A retry with an already stored `submissionId` returns success without creating another row.
 7. Store timestamps server-side as well as retaining client timestamps.
 8. Use prepared SQL statements.
 9. Keep database credentials in Bluehost server configuration, never in GitHub or frontend JavaScript.
-10. Rate-limit or otherwise protect the public endpoint from automated abuse.
+10. Rate-limit the public endpoint. The current implementation uses a server-side IP hash and a configurable request window.
 11. Log operational errors without logging more submission content than necessary.
 12. Back up the database.
 
@@ -107,10 +105,10 @@ If the product later intentionally collects identifiable patient/client health i
 
 ## Frontend activation
 
-After the endpoint exists and a test POST succeeds, set:
+The configured frontend value is:
 
 ```js
 submissionEndpoint: "https://api.oobcreative.com/discovery/submit"
 ```
 
-in `src/system-config.js`, test CORS from the deployed GitHub Pages origin, submit a test record, verify it in the database, and only then enable respondent use.
+in `src/system-config.js`. Re-test CORS and database receipt after API or hosting changes.
