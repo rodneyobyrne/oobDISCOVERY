@@ -1,0 +1,72 @@
+name: Deploy Bluehost Discovery Frontend
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "index.html"
+      - "assets/**"
+      - "clinician/**"
+      - "config/**"
+      - "src/**"
+      - ".github/workflows/deploy-bluehost-site.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-bluehost-discovery-site
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Prepare SSH
+        env:
+          BLUEHOST_SSH_KEY: ${{ secrets.BLUEHOST_SSH_KEY }}
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+        run: |
+          test -n "$BLUEHOST_SSH_KEY"
+          test -n "$BLUEHOST_SSH_HOST"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$BLUEHOST_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$BLUEHOST_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Ensure Discovery subdomain
+        env:
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+        run: |
+          test -n "$BLUEHOST_SSH_USER"
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
+            if ! /usr/local/cpanel/bin/uapi --user=reaqfvmy --output=json DomainInfo list_domains | grep -q "discovery.oobcreative.com"; then
+              /usr/local/cpanel/bin/uapi --user=reaqfvmy --output=jsonpretty SubDomain addsubdomain domain=discovery rootdomain=oobcreative.com dir=discovery.oobcreative.com canoff=1
+            fi
+            mkdir -p /home1/reaqfvmy/discovery.oobcreative.com
+          '
+
+      - name: Deploy frontend
+        env:
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+        run: |
+          scp index.html "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/discovery.oobcreative.com/index.html"
+          scp -r assets clinician config src "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/discovery.oobcreative.com/"
+
+      - name: Verify deployed frontend
+        env:
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+        run: |
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
+            test -f /home1/reaqfvmy/discovery.oobcreative.com/index.html &&
+            test -f /home1/reaqfvmy/discovery.oobcreative.com/src/system-config.js &&
+            grep -q "https://api.oobcreative.com/discovery/submit/" /home1/reaqfvmy/discovery.oobcreative.com/src/system-config.js
+          '
