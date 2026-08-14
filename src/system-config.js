@@ -1,7 +1,7 @@
 export const systemConfig = {
   system: "oobDISCOVERY",
   discoveryType: "clinician",
-  version: "0.2.0",
+  version: "0.2.1",
   storageKey: "oobdiscovery-clinician-draft-v0.2",
   submissionEndpoint: "https://api.oobcreative.com/discovery/submit/",
   allowedProductionOrigin: "https://discovery.oobcreative.com",
