@@ -27,7 +27,7 @@ php -r "echo password_hash('choose-a-strong-password', PASSWORD_DEFAULT), PHP_EO
 Add these repository Actions secrets:
 
 ```text
-DISCOVERY_RESULTS_USERNAME
+DISCOVERY_RESULTS_VIEWER
 DISCOVERY_RESULTS_PASSWORD_HASH
 ```
 
