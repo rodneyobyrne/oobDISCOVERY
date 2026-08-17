@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+$home = rtrim((string)(getenv('HOME') ?: '/home1/reaqfvmy'), '/');
+$localLibrary = dirname(__DIR__, 3) . '/lib';
+$library = is_dir($localLibrary) ? $localLibrary : $home . '/oob-discovery-lib';
+require_once $library . '/discovery-auth.php';
+
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
@@ -168,15 +173,16 @@ function tagList(string $label, $values): void
     echo '</ul></dd></div>';
 }
 
-function renderLogin(?string $error = null, int $status = 200): void
+function renderLogin(array $accessConfig, ?string $error = null, int $status = 200): void
 {
     http_response_code($status);
     header('Content-Type: text/html; charset=utf-8');
     $token = escapeHtml(csrfToken());
     $errorMarkup = $error ? '<p class="notice notice-error" role="alert">' . escapeHtml($error) . '</p>' : '';
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Discovery results · oobCREATIVE</title>';
-    echo '<style>' . dashboardCss() . '</style></head><body class="login-page"><main class="login-shell"><img class="login-mark" src="https://skills.oobcreative.com/branding/Mark-black.svg" alt="oobCREATIVE"><p class="eyebrow">Private workspace</p><h1>Discovery results</h1><p class="lede">Sign in to review stakeholder responses collected for Varetto Recovery.</p>' . $errorMarkup;
-    echo '<form method="post" class="login-form"><input type="hidden" name="csrf" value="' . $token . '"><input type="hidden" name="action" value="login"><label for="username">Username</label><input id="username" name="username" type="text" autocomplete="username" required autofocus><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit">Sign in</button></form><p class="privacy-note">Responses are private research material. Do not share or copy patient-identifying information into this system.</p></main></body></html>';
+    $managedHelp = oobManagedAuthEnabled($accessConfig) ? '<p class="login-help"><a href="/discovery/account/forgot/">Forgot your password?</a></p>' : '';
+    echo '<style>' . dashboardCss() . '</style></head><body class="login-page"><main class="login-shell"><img class="login-mark" src="https://skills.oobcreative.com/branding/Mark-black.svg" alt="oobCREATIVE"><p class="eyebrow">Private workspace</p><h1>Discovery results</h1><p class="lede">Sign in to review the client discovery responses available to your account.</p>' . $errorMarkup;
+    echo '<form method="post" class="login-form"><input type="hidden" name="csrf" value="' . $token . '"><input type="hidden" name="action" value="login"><label for="username">Email or username</label><input id="username" name="username" type="text" autocomplete="username" required autofocus><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit">Sign in</button></form>' . $managedHelp . '<p class="privacy-note">Responses are private research material. Do not share or copy patient-identifying information into this system.</p></main></body></html>';
     exit;
 }
 
@@ -198,7 +204,7 @@ button:hover,.button:hover{background:#333}.button-secondary{background:#fff;col
 .workspace{display:grid;grid-template-columns:minmax(260px,350px) minmax(0,1fr);border-top:3px solid var(--ink)}
 .submission-list{border-right:1px solid var(--line);padding-right:1.5rem}.submission-list h2,.detail h2{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;margin:1.25rem 0}.submission-list ul{list-style:none;margin:0;padding:0}.submission-link{display:block;padding:1rem;border-top:1px solid var(--line);text-decoration:none}.submission-link:hover{background:var(--soft)}.submission-link[aria-current="page"]{background:var(--ink);color:#fff}.submission-link strong,.submission-link span{display:block}.submission-link span{font-size:.85rem;color:var(--muted)}.submission-link[aria-current="page"] span{color:#ddd}
 .detail{min-width:0;padding-left:clamp(1.5rem,4vw,3rem)}.detail-head{display:flex;align-items:start;justify-content:space-between;gap:1rem;border-bottom:1px solid var(--line);padding:1.2rem 0 1.5rem}.detail-head h2{font-size:clamp(1.55rem,3vw,2.7rem);line-height:1.02;letter-spacing:-.04em;text-transform:none;margin:.25rem 0}.detail-meta{margin:0;color:var(--muted);font-size:.9rem}.export-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.5rem}.signal-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:2px solid var(--ink);margin:1.5rem 0 0}.signal-strip div{padding:1rem;border-right:1px solid var(--ink)}.signal-strip div:last-child{border-right:0}.signal-strip strong,.signal-strip span{display:block}.signal-strip strong{font-size:2rem;line-height:1;font-weight:800}.signal-strip span{margin-top:.35rem;font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase}.section-nav{display:flex;flex-wrap:wrap;gap:.35rem .9rem;padding:1rem 0;border-bottom:1px solid var(--line)}.section-nav a{font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.section{scroll-margin-top:1rem;padding:2rem 0;border-bottom:2px solid var(--ink)}.section h3{font-size:1.55rem;line-height:1.1;margin:0 0 1.25rem;letter-spacing:-.025em}.answer{display:grid;grid-template-columns:minmax(140px,210px) 1fr;gap:1.5rem;padding:.75rem 0}.answer dt{font-size:.76rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.answer dd{margin:0;white-space:normal}.tags{display:flex;flex-wrap:wrap;gap:.45rem;list-style:none;margin:0;padding:0}.tags li{border:1px solid var(--ink);background:var(--paper);padding:.25rem .55rem;font-weight:700}.pattern{position:relative;padding:1.5rem;background:var(--soft);border-left:5px solid var(--ink);margin:1rem 0}.pattern:nth-of-type(even){border-left-color:var(--accent)}.pattern h4{font-size:1.25rem;margin:0 0 .75rem;letter-spacing:-.02em}.pattern .answer{grid-template-columns:minmax(130px,180px) 1fr}.raw{scroll-margin-top:1rem;margin-top:2rem;border-top:3px solid var(--ink);padding-top:1rem}.raw summary{cursor:pointer;font-weight:800}.raw-note{color:var(--muted);font-size:.88rem}.raw pre{overflow:auto;background:#111;color:#f6f6f6;padding:1rem;font-size:.78rem;line-height:1.5}.empty{padding:2rem 0;color:var(--muted)}
-.login-page{min-height:100vh;display:grid;place-items:center;background:var(--soft);padding:1.5rem}.login-shell{width:min(100%,520px);background:#fff;border-top:7px solid #000;padding:clamp(2rem,6vw,4rem)}.login-mark{width:48px;height:48px;object-fit:contain;margin-bottom:2.5rem}.login-shell h1{font-size:clamp(2.6rem,9vw,4.5rem)}.login-form{display:grid;gap:.45rem;margin-top:2rem}.login-form label{font-weight:700;margin-top:.6rem}.login-form input{width:100%;min-height:48px;border:1px solid #777;border-radius:0;padding:.65rem;background:#fff}.login-form button{margin-top:1rem}.notice{padding:.8rem 1rem;border-left:5px solid}.notice-error{background:#fff0ed;border-color:#ad2f1b}.privacy-note{font-size:.82rem;color:var(--muted);margin:2rem 0 0}
+.login-page{min-height:100vh;display:grid;place-items:center;background:var(--soft);padding:1.5rem}.login-shell{width:min(100%,520px);background:#fff;border-top:7px solid #000;padding:clamp(2rem,6vw,4rem)}.login-mark{width:48px;height:48px;object-fit:contain;margin-bottom:2.5rem}.login-shell h1{font-size:clamp(2.6rem,9vw,4.5rem)}.login-form{display:grid;gap:.45rem;margin-top:2rem}.login-form label{font-weight:700;margin-top:.6rem}.login-form input{width:100%;min-height:48px;border:1px solid #777;border-radius:0;padding:.65rem;background:#fff}.login-form button{margin-top:1rem}.login-help{margin:.75rem 0}.notice{padding:.8rem 1rem;border-left:5px solid}.notice-error{background:#fff0ed;border-color:#ad2f1b}.privacy-note{font-size:.82rem;color:var(--muted);margin:2rem 0 0}.account-name{font-size:.82rem;color:#ddd}.client-code{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}
 @media(max-width:780px){.topbar-inner,.page-head,.detail-head{align-items:flex-start;flex-direction:column}.workspace{display:block}.submission-list{border-right:0;border-bottom:1px solid var(--ink);padding:0 0 1.5rem}.detail{padding-left:0;padding-top:1rem}.answer,.pattern .answer{grid-template-columns:1fr;gap:.3rem}.top-actions,.export-actions{justify-content:flex-start;flex-wrap:wrap}.signal-strip{grid-template-columns:1fr}.signal-strip div{border-right:0;border-bottom:1px solid var(--ink)}.signal-strip div:last-child{border-bottom:0}}
 @media print{.topbar,.submission-list,.detail-head .button,.raw{display:none}.page{max-width:none;padding:0}.workspace{display:block;border:0}.detail{padding:0}.section{break-inside:avoid}}
 CSS;
@@ -211,18 +217,15 @@ if (!isSecureRequest()) {
     exit;
 }
 
-$home = rtrim((string)(getenv('HOME') ?: '/home1/reaqfvmy'), '/');
-$databaseConfigPath = $home . '/oob-discovery-config.php';
-$accessConfigPath = $home . '/oob-discovery-results.php';
-if (!is_file($databaseConfigPath) || !is_file($accessConfigPath)) {
+try {
+    [$databaseConfig, $accessConfig] = oobLoadRuntimeConfig();
+    $pdo = oobDatabaseConnection($databaseConfig);
+} catch (Throwable $error) {
     http_response_code(503);
     header('Content-Type: text/plain; charset=utf-8');
     echo 'Results access is not configured.';
     exit;
 }
-
-$databaseConfig = require $databaseConfigPath;
-$accessConfig = require $accessConfigPath;
 $configuredUsername = (string)($accessConfig['username'] ?? '');
 $configuredHash = (string)($accessConfig['password_hash'] ?? '');
 $timezone = (string)($accessConfig['timezone'] ?? 'America/Denver');
@@ -233,45 +236,46 @@ if ($configuredUsername === '' || $configuredHash === '') {
     exit;
 }
 
-ini_set('session.use_strict_mode', '1');
-ini_set('session.use_only_cookies', '1');
-session_name('oob_discovery_results');
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/discovery/results/',
-    'secure' => true,
-    'httponly' => true,
-    'samesite' => 'Strict',
-]);
-session_start();
+oobStartDiscoverySession();
+
+if (!empty($_SESSION['password_recovery'])) {
+    redirectTo('/discovery/account/reset/');
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!validCsrf()) renderLogin('Your session expired. Refresh the page and try again.', 400);
+    if (!validCsrf()) renderLogin($accessConfig, 'Your session expired. Refresh the page and try again.', 400);
     $action = (string)($_POST['action'] ?? '');
     if ($action === 'logout') {
-        $_SESSION = [];
-        if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'] ?? '', (bool)$params['secure'], (bool)$params['httponly']);
-        }
-        session_destroy();
+        oobClearAuthSession();
         redirectTo('/discovery/results/');
     }
     if ($action === 'login') {
-        if (loginRateLimited()) renderLogin('Too many sign-in attempts. Wait 15 minutes and try again.', 429);
+        if (loginRateLimited()) renderLogin($accessConfig, 'Too many sign-in attempts. Wait 15 minutes and try again.', 429);
         $username = is_string($_POST['username'] ?? null) ? trim($_POST['username']) : '';
         $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
-        $usernameMatches = hash_equals($configuredUsername, $username);
-        $passwordMatches = password_verify($password, $configuredHash);
-        if (!$usernameMatches || !$passwordMatches) {
+        $legacyMatches = hash_equals($configuredUsername, $username) && password_verify($password, $configuredHash);
+        $managedMatches = false;
+        if (!$legacyMatches && oobManagedAuthEnabled($accessConfig)) {
+            try {
+                oobManagedLogin($accessConfig, $pdo, $username, $password);
+                $managedMatches = true;
+            } catch (Throwable $error) {
+                $managedMatches = false;
+            }
+        }
+        if (!$legacyMatches && !$managedMatches) {
             recordFailedLogin();
-            renderLogin('The username or password was not recognized.', 401);
+            renderLogin($accessConfig, 'The email/username or password was not recognized.', 401);
         }
         clearLoginRateLimit();
-        session_regenerate_id(true);
-        $_SESSION['authenticated'] = true;
-        $_SESSION['authenticated_at'] = time();
-        $_SESSION['csrf'] = bin2hex(random_bytes(32));
+        if ($legacyMatches) {
+            session_regenerate_id(true);
+            $_SESSION['auth_mode'] = 'legacy';
+            $_SESSION['authenticated'] = true;
+            $_SESSION['authenticated_at'] = time();
+            $_SESSION['username'] = $configuredUsername;
+            $_SESSION['csrf'] = bin2hex(random_bytes(32));
+        }
         redirectTo('/discovery/results/');
     }
 }
@@ -279,12 +283,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $authenticatedAt = (int)($_SESSION['authenticated_at'] ?? 0);
 if (empty($_SESSION['authenticated']) || $authenticatedAt === 0 || time() - $authenticatedAt > 28800) {
     $_SESSION = [];
-    renderLogin();
+    renderLogin($accessConfig);
 }
 
 try {
-    $pdo = databaseConnection($databaseConfig);
-    $listStatement = $pdo->query("SELECT id, submission_id, respondent_name, respondent_email, questionnaire_version, status, created_at FROM discovery_submissions WHERE discovery_type = 'clinician' AND client_id = 'varetto' ORDER BY created_at DESC, id DESC LIMIT 100");
+    $principal = oobCurrentPrincipal($accessConfig, $pdo);
+    if (!$principal) {
+        $_SESSION = [];
+        renderLogin($accessConfig);
+    }
+    $clientIds = array_values(array_unique(array_map(static fn(array $access): string => (string)$access['client_id'], $principal['clients'])));
+    if ($principal['system_admin']) {
+        $scopeSql = "discovery_type = 'clinician' AND client_id <> 'deployment-check'";
+        $scopeParameters = [];
+    } else {
+        if ($clientIds === []) throw new RuntimeException('No client access is assigned.');
+        $scopeSql = "discovery_type = 'clinician' AND client_id IN (" . implode(',', array_fill(0, count($clientIds), '?')) . ')';
+        $scopeParameters = $clientIds;
+    }
+    $listStatement = $pdo->prepare("SELECT id, submission_id, client_id, respondent_name, respondent_email, questionnaire_version, status, created_at FROM discovery_submissions WHERE {$scopeSql} ORDER BY created_at DESC, id DESC LIMIT 100");
+    $listStatement->execute($scopeParameters);
     $submissions = $listStatement->fetchAll();
 
     $selectedId = filter_input(INPUT_GET, 'submission', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -294,8 +312,8 @@ try {
     $selected = null;
     $payload = null;
     if ($requestedId) {
-        $detailStatement = $pdo->prepare("SELECT * FROM discovery_submissions WHERE id = :id AND discovery_type = 'clinician' AND client_id = 'varetto' LIMIT 1");
-        $detailStatement->execute([':id' => $requestedId]);
+        $detailStatement = $pdo->prepare("SELECT * FROM discovery_submissions WHERE id = ? AND {$scopeSql} LIMIT 1");
+        $detailStatement->execute(array_merge([$requestedId], $scopeParameters));
         $selected = $detailStatement->fetch() ?: null;
         if ($selected) {
             $payload = json_decode((string)$selected['payload_json'], true, 64, JSON_THROW_ON_ERROR);
@@ -351,6 +369,8 @@ $patternCount = is_array($patterns) ? count($patterns) : 0;
     <div class="topbar-inner">
       <div class="brand"><img class="brand-mark" src="https://skills.oobcreative.com/branding/Mark-black.svg" alt="">oobCREATIVE · Discovery</div>
       <div class="top-actions">
+        <span class="account-name">Signed in as <?= escapeHtml((string)$principal['username']) ?></span>
+        <?php if ($principal['system_admin']): ?><a class="button button-secondary" href="/discovery/results/invitations/">Manage access</a><?php endif; ?>
         <a class="button button-secondary" href="https://discovery.oobcreative.com/clinician/">Open questionnaire</a>
         <form method="post">
           <input type="hidden" name="csrf" value="<?= escapeHtml(csrfToken()) ?>">
@@ -377,7 +397,7 @@ $patternCount = is_array($patterns) ? count($patterns) : 0;
         <?php else: ?>
           <ul>
             <?php foreach ($submissions as $row): $rowId = (int)$row['id']; ?>
-              <li><a class="submission-link" href="?submission=<?= $rowId ?>" <?= $rowId === $selectedNumericId ? 'aria-current="page"' : '' ?>><strong><?= escapeHtml(displayName($row)) ?></strong><span><?= escapeHtml(formatDate((string)$row['created_at'], $timezone)) ?></span><span><?= escapeHtml((string)$row['questionnaire_version']) ?></span></a></li>
+              <li><a class="submission-link" href="?submission=<?= $rowId ?>" <?= $rowId === $selectedNumericId ? 'aria-current="page"' : '' ?>><strong><?= escapeHtml(displayName($row)) ?></strong><span class="client-code"><?= escapeHtml((string)$row['client_id']) ?></span><span><?= escapeHtml(formatDate((string)$row['created_at'], $timezone)) ?></span><span><?= escapeHtml((string)$row['questionnaire_version']) ?></span></a></li>
             <?php endforeach; ?>
           </ul>
         <?php endif; ?>

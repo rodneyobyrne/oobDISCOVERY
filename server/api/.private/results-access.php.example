@@ -6,4 +6,10 @@ return [
     'username' => 'REPLACE_AT_DEPLOY_TIME',
     'password_hash' => 'REPLACE_WITH_PASSWORD_HASH',
     'timezone' => 'America/Denver',
+    'managed_auth' => [
+        'enabled' => false,
+        'supabase_url' => 'https://YOUR_PROJECT.supabase.co',
+        'supabase_anon_key' => 'REPLACE_AT_DEPLOY_TIME',
+        'site_url' => 'https://api.oobcreative.com',
+    ],
 ];
