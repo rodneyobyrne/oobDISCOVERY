@@ -38,12 +38,12 @@ jobs:
 
       - name: Build private results access config
         env:
-          DISCOVERY_RESULTS_USERNAME: ${{ secrets.DISCOVERY_RESULTS_USERNAME }}
+          DISCOVERY_RESULTS_VIEWER: ${{ secrets.DISCOVERY_RESULTS_VIEWER }}
           DISCOVERY_RESULTS_PASSWORD_HASH: ${{ secrets.DISCOVERY_RESULTS_PASSWORD_HASH }}
         run: |
-          test -n "$DISCOVERY_RESULTS_USERNAME"
+          test -n "$DISCOVERY_RESULTS_VIEWER"
           test -n "$DISCOVERY_RESULTS_PASSWORD_HASH"
-          php -r '$config = ["username" => getenv("DISCOVERY_RESULTS_USERNAME"), "password_hash" => getenv("DISCOVERY_RESULTS_PASSWORD_HASH"), "timezone" => "America/Denver"]; file_put_contents("/tmp/oob-discovery-results.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n");'
+          php -r '$config = ["username" => getenv("DISCOVERY_RESULTS_VIEWER"), "password_hash" => getenv("DISCOVERY_RESULTS_PASSWORD_HASH"), "timezone" => "America/Denver"]; file_put_contents("/tmp/oob-discovery-results.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n");'
           php -l /tmp/oob-discovery-results.php
 
       - name: Deploy API endpoints and results workspace
