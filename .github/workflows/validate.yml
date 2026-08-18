@@ -19,6 +19,7 @@ jobs:
         run: |
           node --check src/app.js
           node --check src/bootstrap.js
+          node --check src/home-login.js
           node --check src/system-config.js
           node --check config/clinician-core.js
           node --check config/varetto.js
