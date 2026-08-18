@@ -8,6 +8,7 @@ on:
       - "server/api/**"
       - "server/lib/**"
       - "server/tools/**"
+      - "server/composer.json"
       - ".github/workflows/deploy-bluehost-api.yml"
 
 permissions:
@@ -47,10 +48,12 @@ jobs:
       - name: Install private PHP dependencies
         run: composer install --working-dir=server --no-dev --prefer-dist --optimize-autoloader --no-interaction
 
-      - name: Build private results access config
+      - name: Build private results and account config
         env:
           DISCOVERY_RESULTS_VIEWER: ${{ secrets.DISCOVERY_RESULTS_VIEWER }}
           DISCOVERY_RESULTS_PASSWORD_HASH: ${{ secrets.DISCOVERY_RESULTS_PASSWORD_HASH }}
+          DISCOVERY_RESULTS_DB_USER: ${{ secrets.DISCOVERY_RESULTS_DB_USER }}
+          DISCOVERY_RESULTS_DB_PASSWORD: ${{ secrets.DISCOVERY_RESULTS_DB_PASSWORD }}
           DISCOVERY_ACCOUNT_AUTH_ENABLED: ${{ secrets.DISCOVERY_ACCOUNT_AUTH_ENABLED }}
           DISCOVERY_SMTP_USERNAME: ${{ secrets.DISCOVERY_SMTP_USERNAME }}
           DISCOVERY_SMTP_PASSWORD: ${{ secrets.DISCOVERY_SMTP_PASSWORD }}
@@ -58,16 +61,97 @@ jobs:
         run: |
           test -n "$DISCOVERY_RESULTS_VIEWER"
           test -n "$DISCOVERY_RESULTS_PASSWORD_HASH"
-          php -r '$enabled = filter_var(getenv("DISCOVERY_ACCOUNT_AUTH_ENABLED") ?: "false", FILTER_VALIDATE_BOOL); $smtp = ["host" => "smtp.gmail.com", "port" => 587, "username" => getenv("DISCOVERY_SMTP_USERNAME") ?: "", "password" => getenv("DISCOVERY_SMTP_PASSWORD") ?: "", "from_email" => getenv("DISCOVERY_SMTP_FROM_EMAIL") ?: "", "from_name" => "oobCREATIVE Discovery"]; if ($enabled && (trim($smtp["username"]) === "" || trim($smtp["password"]) === "" || !filter_var($smtp["from_email"], FILTER_VALIDATE_EMAIL))) { fwrite(STDERR, "Invited accounts are enabled but Google SMTP secrets are missing or invalid.\n"); exit(1); } $config = ["username" => getenv("DISCOVERY_RESULTS_VIEWER"), "password_hash" => getenv("DISCOVERY_RESULTS_PASSWORD_HASH"), "timezone" => "America/Denver", "account_auth" => ["enabled" => $enabled, "site_url" => "https://api.oobcreative.com", "vendor_autoload" => "/home1/reaqfvmy/oob-discovery-vendor/autoload.php", "smtp" => $smtp]]; file_put_contents("/tmp/oob-discovery-results.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n");'
+
+          requested="${DISCOVERY_ACCOUNT_AUTH_ENABLED,,}"
+          db_ready=false
+          smtp_ready=false
+          enabled=false
+
+          if [[ -n "$DISCOVERY_RESULTS_DB_USER" && -n "$DISCOVERY_RESULTS_DB_PASSWORD" ]]; then
+            db_ready=true
+          else
+            echo "::notice::Private results database credentials are not configured; account-table migration will be skipped and the runtime will retain the submission database fallback."
+          fi
+
+          if [[ -n "$DISCOVERY_SMTP_USERNAME" && -n "$DISCOVERY_SMTP_PASSWORD" && "$DISCOVERY_SMTP_FROM_EMAIL" == *@* ]]; then
+            smtp_ready=true
+          fi
+
+          if [[ "$requested" == "true" && "$db_ready" == "true" && "$smtp_ready" == "true" ]]; then
+            enabled=true
+          elif [[ "$requested" == "true" ]]; then
+            echo "::warning::Invited accounts were requested but are being kept disabled because the private results database and/or Google Workspace SMTP configuration is incomplete. The shared administrator login will remain available."
+          fi
+
+          export DISCOVERY_EFFECTIVE_ACCOUNT_AUTH_ENABLED="$enabled"
+          export DISCOVERY_RESULTS_DB_READY="$db_ready"
+          export DISCOVERY_SMTP_READY="$smtp_ready"
+
+          php -r '$smtp = ["host" => "smtp.gmail.com", "port" => 587, "username" => getenv("DISCOVERY_SMTP_USERNAME") ?: "", "password" => getenv("DISCOVERY_SMTP_PASSWORD") ?: "", "from_email" => getenv("DISCOVERY_SMTP_FROM_EMAIL") ?: "", "from_name" => "oobCREATIVE Discovery"]; $resultsDb = ["user" => getenv("DISCOVERY_RESULTS_DB_USER") ?: "", "password" => getenv("DISCOVERY_RESULTS_DB_PASSWORD") ?: ""]; $config = ["username" => getenv("DISCOVERY_RESULTS_VIEWER"), "password_hash" => getenv("DISCOVERY_RESULTS_PASSWORD_HASH"), "timezone" => "America/Denver", "results_database" => $resultsDb, "runtime" => ["results_database_ready" => getenv("DISCOVERY_RESULTS_DB_READY") === "true", "smtp_ready" => getenv("DISCOVERY_SMTP_READY") === "true"], "account_auth" => ["enabled" => getenv("DISCOVERY_EFFECTIVE_ACCOUNT_AUTH_ENABLED") === "true", "site_url" => "https://api.oobcreative.com", "vendor_autoload" => "/home1/reaqfvmy/oob-discovery-vendor/autoload.php", "smtp" => $smtp]]; file_put_contents("/tmp/oob-discovery-results.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n");'
           php -l /tmp/oob-discovery-results.php
 
-      - name: Deploy API endpoints and results workspace
+      - name: Build database role router
+        run: |
+          cat > /tmp/oob-discovery-config.php <<'PHP'
+          <?php
+          declare(strict_types=1);
+
+          $submissionConfigPath = __DIR__ . '/oob-discovery-submit-config.php';
+          if (!is_file($submissionConfigPath)) {
+              throw new RuntimeException('Submission database configuration is missing.');
+          }
+
+          $config = require $submissionConfigPath;
+          if (!is_array($config)) {
+              throw new RuntimeException('Submission database configuration is invalid.');
+          }
+
+          $accessPath = __DIR__ . '/oob-discovery-results.php';
+          $access = is_file($accessPath) ? require $accessPath : [];
+          if (!is_array($access)) $access = [];
+
+          $requestPath = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
+          $forceSubmission = getenv('OOB_DISCOVERY_DB_ROLE') === 'submission';
+          $publicSubmission = $requestPath !== '' && str_starts_with($requestPath, '/discovery/submit');
+          $useSubmission = $forceSubmission || $publicSubmission;
+
+          $resultsDatabase = $access['results_database'] ?? [];
+          $resultsReady = is_array($resultsDatabase)
+              && trim((string)($resultsDatabase['user'] ?? '')) !== ''
+              && trim((string)($resultsDatabase['password'] ?? '')) !== '';
+
+          if (!$useSubmission && $resultsReady) {
+              $config['database']['user'] = (string)$resultsDatabase['user'];
+              $config['database']['password'] = (string)$resultsDatabase['password'];
+          }
+
+          $config['runtime'] = array_merge(
+              is_array($config['runtime'] ?? null) ? $config['runtime'] : [],
+              [
+                  'results_database_ready' => $resultsReady,
+                  'database_role' => $useSubmission ? 'submission' : ($resultsReady ? 'results' : 'submission-fallback'),
+              ]
+          );
+
+          return $config;
+          PHP
+          php -l /tmp/oob-discovery-config.php
+
+      - name: Deploy API endpoints and private runtime files
         env:
           BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
           BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
         run: |
           test -n "$BLUEHOST_SSH_USER"
-          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'mkdir -p /home1/reaqfvmy/oob-discovery-lib /home1/reaqfvmy/oob-discovery-vendor /home1/reaqfvmy/api.oobcreative.com/discovery/submit /home1/reaqfvmy/api.oobcreative.com/discovery/results/invitations /home1/reaqfvmy/api.oobcreative.com/discovery/account/claim /home1/reaqfvmy/api.oobcreative.com/discovery/account/forgot /home1/reaqfvmy/api.oobcreative.com/discovery/account/confirm /home1/reaqfvmy/api.oobcreative.com/discovery/account/reset'
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
+            set -e
+            mkdir -p /home1/reaqfvmy/oob-discovery-lib /home1/reaqfvmy/oob-discovery-vendor /home1/reaqfvmy/api.oobcreative.com/discovery/submit /home1/reaqfvmy/api.oobcreative.com/discovery/results/invitations /home1/reaqfvmy/api.oobcreative.com/discovery/account/claim /home1/reaqfvmy/api.oobcreative.com/discovery/account/forgot /home1/reaqfvmy/api.oobcreative.com/discovery/account/confirm /home1/reaqfvmy/api.oobcreative.com/discovery/account/reset
+            if [ ! -f /home1/reaqfvmy/oob-discovery-submit-config.php ]; then
+              test -f /home1/reaqfvmy/oob-discovery-config.php
+              cp /home1/reaqfvmy/oob-discovery-config.php /home1/reaqfvmy/oob-discovery-submit-config.php
+              chmod 600 /home1/reaqfvmy/oob-discovery-submit-config.php
+            fi
+          '
           scp server/lib/*.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-lib/"
           scp -r server/vendor/* "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-vendor/"
           scp server/api/discovery/submit/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/submit/index.php"
@@ -78,12 +162,42 @@ jobs:
           scp server/api/discovery/account/confirm/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/account/confirm/index.php"
           scp server/api/discovery/account/reset/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/account/reset/index.php"
           scp /tmp/oob-discovery-results.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-results.php"
+          scp /tmp/oob-discovery-config.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-config.php"
 
-      - name: Migrate account storage
+      - name: Verify private runtime and PHP
         env:
           BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
           BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
         run: |
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
+            set -e
+            test -f /home1/reaqfvmy/oob-discovery-submit-config.php
+            test -f /home1/reaqfvmy/oob-discovery-config.php
+            test -f /home1/reaqfvmy/oob-discovery-results.php
+            chmod 600 /home1/reaqfvmy/oob-discovery-submit-config.php /home1/reaqfvmy/oob-discovery-config.php /home1/reaqfvmy/oob-discovery-results.php /home1/reaqfvmy/oob-discovery-lib/*.php
+            test "$(stat -c %a /home1/reaqfvmy/oob-discovery-submit-config.php)" = "600"
+            test "$(stat -c %a /home1/reaqfvmy/oob-discovery-config.php)" = "600"
+            test "$(stat -c %a /home1/reaqfvmy/oob-discovery-results.php)" = "600"
+            test -f /home1/reaqfvmy/oob-discovery-vendor/autoload.php
+            OOB_DISCOVERY_DB_ROLE=submission php -r '\''$c=require "/home1/reaqfvmy/oob-discovery-config.php"; if (($c["runtime"]["database_role"] ?? "") !== "submission") exit(2);'\''
+            php -l /home1/reaqfvmy/oob-discovery-config.php
+            php -l /home1/reaqfvmy/oob-discovery-results.php
+            find /home1/reaqfvmy/oob-discovery-lib /home1/reaqfvmy/api.oobcreative.com/discovery -type f -name "*.php" > /tmp/oob-discovery-php-files
+            while IFS= read -r file; do php -l "$file" || exit 1; done < /tmp/oob-discovery-php-files
+            rm -f /tmp/oob-discovery-php-files
+          '
+
+      - name: Migrate private results and account storage
+        env:
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+          DISCOVERY_RESULTS_DB_USER: ${{ secrets.DISCOVERY_RESULTS_DB_USER }}
+          DISCOVERY_RESULTS_DB_PASSWORD: ${{ secrets.DISCOVERY_RESULTS_DB_PASSWORD }}
+        run: |
+          if [[ -z "$DISCOVERY_RESULTS_DB_USER" || -z "$DISCOVERY_RESULTS_DB_PASSWORD" ]]; then
+            echo "Account migration skipped: private results database credentials are not configured."
+            exit 0
+          fi
           scp server/tools/migrate-db.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-migrate.php"
           ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
             php /home1/reaqfvmy/oob-discovery-migrate.php
@@ -92,46 +206,47 @@ jobs:
             exit $code
           '
 
-      - name: Verify private configs and PHP
-        env:
-          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
-          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
-        run: |
-          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
-            test -f /home1/reaqfvmy/oob-discovery-config.php &&
-            test -f /home1/reaqfvmy/oob-discovery-results.php &&
-            chmod 600 /home1/reaqfvmy/oob-discovery-config.php /home1/reaqfvmy/oob-discovery-results.php /home1/reaqfvmy/oob-discovery-lib/*.php &&
-            test "$(stat -c %a /home1/reaqfvmy/oob-discovery-config.php)" = "600" &&
-            test "$(stat -c %a /home1/reaqfvmy/oob-discovery-results.php)" = "600" &&
-            test -f /home1/reaqfvmy/oob-discovery-vendor/autoload.php &&
-            find /home1/reaqfvmy/oob-discovery-lib /home1/reaqfvmy/api.oobcreative.com/discovery -type f -name "*.php" > /tmp/oob-discovery-php-files &&
-            while IFS= read -r file; do php -l "$file" || exit 1; done < /tmp/oob-discovery-php-files &&
-            rm -f /tmp/oob-discovery-php-files &&
-            php -l /home1/reaqfvmy/oob-discovery-results.php
-          '
-
-      - name: Verify database storage contract
+      - name: Verify public submission database contract
         env:
           BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
           BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
         run: |
           scp server/tools/verify-db.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-verify-db.php"
           ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
-            php /home1/reaqfvmy/oob-discovery-verify-db.php
+            OOB_DISCOVERY_DB_ROLE=submission php /home1/reaqfvmy/oob-discovery-verify-db.php
             code=$?
             rm -f /home1/reaqfvmy/oob-discovery-verify-db.php
             exit $code
           '
 
-      - name: Verify account storage contract
+      - name: Verify private account storage contract
         env:
           BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
           BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+          DISCOVERY_RESULTS_DB_USER: ${{ secrets.DISCOVERY_RESULTS_DB_USER }}
+          DISCOVERY_RESULTS_DB_PASSWORD: ${{ secrets.DISCOVERY_RESULTS_DB_PASSWORD }}
         run: |
+          if [[ -z "$DISCOVERY_RESULTS_DB_USER" || -z "$DISCOVERY_RESULTS_DB_PASSWORD" ]]; then
+            echo "Account storage verification skipped: private results database credentials are not configured."
+            exit 0
+          fi
           scp server/tools/verify-auth.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-verify-auth.php"
           ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
             php /home1/reaqfvmy/oob-discovery-verify-auth.php
             code=$?
             rm -f /home1/reaqfvmy/oob-discovery-verify-auth.php
+            exit $code
+          '
+
+      - name: Verify Google Workspace SMTP when account auth is active
+        env:
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+        run: |
+          scp server/tools/verify-smtp.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-verify-smtp.php"
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
+            php /home1/reaqfvmy/oob-discovery-verify-smtp.php
+            code=$?
+            rm -f /home1/reaqfvmy/oob-discovery-verify-smtp.php
             exit $code
           '
