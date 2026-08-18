@@ -57,6 +57,10 @@ if ($apiMode) {
         echo json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;
     };
+    $claimComparable = static function (array $value): string {
+        if (isset($value['timing']) && is_array($value['timing'])) unset($value['timing']['generatedAt']);
+        return json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    };
     if ($origin !== '' && $origin !== $allowedOrigin) $json(403, ['ok' => false, 'error' => 'Origin not allowed.']);
 
     $principal = oobCurrentPrincipal($accessConfig, $pdo);
@@ -137,7 +141,13 @@ if ($apiMode) {
     if ($action === 'claim') {
         if ($existingOwner > 0 && $existingOwner !== $userId) $json(403, ['ok' => false, 'error' => 'This response already belongs to another account.']);
         if ($existingOwner === 0) {
-            if (!hash_equals((string)$row['payload_json'], $canonical)) $json(409, ['ok' => false, 'error' => 'The stored response does not match this account claim.']);
+            try {
+                $storedPayload = json_decode((string)$row['payload_json'], true, 64, JSON_THROW_ON_ERROR);
+                $sameClaim = is_array($storedPayload) && hash_equals($claimComparable($storedPayload), $claimComparable($payload));
+            } catch (Throwable $error) {
+                $sameClaim = false;
+            }
+            if (!$sameClaim) $json(409, ['ok' => false, 'error' => 'The stored response does not match this account claim.']);
             $assign = $pdo->prepare('UPDATE discovery_submissions SET owner_user_id = :owner_user_id WHERE id = :id AND owner_user_id IS NULL');
             $assign->execute([':owner_user_id' => $userId, ':id' => (int)$row['id']]);
             if ($assign->rowCount() !== 1) $json(409, ['ok' => false, 'error' => 'The response could not be linked to this account.']);
