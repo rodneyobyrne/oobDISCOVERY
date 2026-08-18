@@ -1,0 +1,14 @@
+.site-header .header-inner{min-height:104px}
+.site-header .brand{gap:1rem}
+.site-header .brand img{display:block;width:auto;height:82px;object-fit:contain;flex:0 0 auto}
+.site-header .brand-copy{display:grid;line-height:1}
+.site-header .brand-name{font-size:1rem;font-weight:700;letter-spacing:-.04em}
+.site-header .brand-name span{color:#929292;font-weight:400}
+.site-header .brand-sub{margin-top:.45rem;font-size:.65rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.header-account-nav{display:flex;align-items:center;justify-content:flex-end;gap:.65rem;flex-wrap:wrap}
+.header-account-identity{display:grid;justify-items:end;line-height:1.15;margin-right:.35rem}
+.header-account-name{font-size:.84rem;font-weight:700}
+.header-account-role{margin-top:.3rem;font-size:.66rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#666}
+.header-account-nav .button{min-height:42px;padding:.65rem .9rem}
+.header-context{white-space:nowrap}
+@media(max-width:760px){.site-header .header-inner{align-items:flex-start;flex-direction:column;padding:1rem 0}.site-header .brand img{height:68px}.header-account-nav{width:100%;justify-content:flex-start}.header-account-identity{justify-items:start;width:100%;margin-right:0}.header-account-nav .button{flex:1 1 auto}}
