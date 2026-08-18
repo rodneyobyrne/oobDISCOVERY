@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://discovery.oobcreative.com/schema/clinical-audience-mapping-submission-v4.json",
+  "$id": "https://discovery.oobcreative.com/schema/clinical-audience-mapping-submission-v5.json",
   "title": "oobDISCOVERY Clinical Audience Mapping Submission",
   "type": "object",
   "required": ["submissionId", "system", "discoveryType", "questionnaireVersion", "client", "respondent", "timing", "services", "audiences", "patientPatterns", "narrative", "sourceIntegrity"],
@@ -9,7 +9,7 @@
     "system": { "const": "oobDISCOVERY" },
     "discoveryType": { "const": "clinician" },
     "systemVersion": { "type": "string" },
-    "questionnaireVersion": { "type": "string", "pattern": "-v4$" },
+    "questionnaireVersion": { "type": "string", "pattern": "-v5$" },
     "client": {
       "type": "object",
       "required": ["id", "label"],
@@ -62,7 +62,7 @@
     "audiences": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 4,
+      "maxItems": 5,
       "items": {
         "type": "object",
         "required": ["id", "title", "situation"],
@@ -77,12 +77,17 @@
     "patientPatterns": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 4,
+      "maxItems": 5,
       "items": {
         "type": "object",
-        "required": ["audienceId", "audienceBasis", "evidenceSources", "clinicalContext", "workingLabel", "audienceRole", "stableContext", "helpSeekingState", "observedAndPrivate", "functionAndDesiredChange", "resistanceAndTrust", "languageSignals", "fitAndBoundary", "distinction"],
+        "required": ["audienceId", "sourceArchetypeId", "sourceArchetypeTitle", "sourceArchetypeSummary", "reviewDecision", "therapyScope", "audienceBasis", "evidenceSources", "clinicalContext", "workingLabel", "centralTension", "helpSeekingThreshold", "functionAndCost", "observedAndPrivate", "ambivalence", "trustBridge", "decisionSystem", "languageSignals", "healingDirectionAndFit", "distinction"],
         "properties": {
           "audienceId": { "type": "string", "maxLength": 80 },
+          "sourceArchetypeId": { "type": "string", "maxLength": 80 },
+          "sourceArchetypeTitle": { "type": "string", "maxLength": 240 },
+          "sourceArchetypeSummary": { "type": "string", "maxLength": 1600 },
+          "reviewDecision": { "type": "string", "maxLength": 240 },
+          "therapyScope": { "type": "string", "maxLength": 240 },
           "audienceBasis": { "type": "string", "maxLength": 240 },
           "evidenceSources": {
             "type": "array",
@@ -97,14 +102,15 @@
             "items": { "type": "string", "maxLength": 240 }
           },
           "workingLabel": { "type": "string", "maxLength": 240 },
-          "audienceRole": { "type": "string", "maxLength": 10000 },
-          "stableContext": { "type": "string", "maxLength": 10000 },
-          "helpSeekingState": { "type": "string", "maxLength": 10000 },
+          "centralTension": { "type": "string", "maxLength": 10000 },
+          "helpSeekingThreshold": { "type": "string", "maxLength": 10000 },
+          "functionAndCost": { "type": "string", "maxLength": 10000 },
           "observedAndPrivate": { "type": "string", "maxLength": 10000 },
-          "functionAndDesiredChange": { "type": "string", "maxLength": 10000 },
-          "resistanceAndTrust": { "type": "string", "maxLength": 10000 },
+          "ambivalence": { "type": "string", "maxLength": 10000 },
+          "trustBridge": { "type": "string", "maxLength": 10000 },
+          "decisionSystem": { "type": "string", "maxLength": 10000 },
           "languageSignals": { "type": "string", "maxLength": 10000 },
-          "fitAndBoundary": { "type": "string", "maxLength": 10000 },
+          "healingDirectionAndFit": { "type": "string", "maxLength": 10000 },
           "distinction": { "type": "string", "maxLength": 10000 }
         },
         "additionalProperties": false

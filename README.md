@@ -8,11 +8,11 @@ This repository contains the first discovery type in the broader `discovery.oobc
 
 The intended reasoning flow is:
 
-**practice reality → candidate audience patterns → overlap/distinction review → communication archetypes → website content**
+**original study → selected persona worksheet → practice reality → overlap/distinction review → communication archetypes → website content**
 
-Questionnaire version 4 asks a clinician to describe one candidate audience at a time. It explicitly separates relatively stable context from the state-dependent presentation that brings someone to care, and it distinguishes direct language, repeated observation, collateral information, clinical inference, and future-audience hypotheses. Diagnoses and clinical concerns remain contextual modifiers rather than automatic archetype boundaries.
+Questionnaire version 5 begins with the four personas in the pre-therapy **Varetto Recovery: Persona and Keyword Study**. A clinician chooses one persona to sharpen or starts a new therapy-audience hypothesis. The original audience description, feelings, questions, influencers, barriers, and recovery-housing search language remain visible as source material; the clinician's revisions are stored separately.
 
-The form accepts up to four candidate patterns, but it does not turn four entries into four personas. Downstream analysis proposes likely overlaps and meaningful distinctions for clinician review.
+Each persona opens in its own worksheet to prevent characteristics from bleeding across audiences. The questions trace central tension, help-seeking threshold, coping function and cost, observable versus private experience, ambivalence, trust, the decision system, audience language, and a credible direction toward connection or healing. Diagnoses and clinical concerns remain contextual modifiers rather than automatic archetype boundaries. The form accepts up to five worksheets, but downstream analysis—not the form—proposes merges and meaningful distinctions for clinician review.
 
 ## Current status
 
@@ -89,9 +89,10 @@ src/app.js                                  Form rendering, autosave, dictation,
 src/system-config.js                        Shared runtime configuration
 config/clinician-core.js                    Reusable audience-pattern questions
 config/varetto.js                           Varetto services and evidence options
-schema/submission.schema.json               Version 4 submission data contract
+schema/submission.schema.json               Version 5 submission data contract
 server/api/discovery/results/index.php      Protected results workspace
 docs/METHOD.md                              Discovery methodology and guardrails
+docs/VARETTO-OUTREACH.md                    Two-message clinician outreach sequence
 docs/DATA-CONNECTION.md                     Bluehost/API handoff requirements
 docs/RESULTS.md                             Results access and export contract
 .github/workflows/pages.yml                 GitHub Pages deployment workflow
