@@ -39,7 +39,5 @@ jobs:
 
       - name: Validate PHP
         run: |
-          php -l server/api/discovery/submit/index.php
-          php -l server/api/discovery/results/index.php
-          php -l server/tools/migrate-db.php
-          php -l server/tools/verify-db.php
+          find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          php server/tests/auth-contract.php

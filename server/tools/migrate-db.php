@@ -36,7 +36,54 @@ CREATE TABLE IF NOT EXISTS discovery_submissions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 SQL);
 
-    fwrite(STDOUT, "Database migration OK\n");
+    $pdo->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS discovery_users (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  auth_user_id CHAR(36) NOT NULL UNIQUE,
+  email VARCHAR(254) NOT NULL UNIQUE,
+  username VARCHAR(32) NOT NULL UNIQUE,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  is_system_admin TINYINT(1) NOT NULL DEFAULT 0,
+  email_verified_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_discovery_users_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+    $pdo->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS discovery_user_clients (
+  user_id BIGINT UNSIGNED NOT NULL,
+  client_id VARCHAR(80) NOT NULL,
+  role VARCHAR(20) NOT NULL DEFAULT 'viewer',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, client_id),
+  INDEX idx_discovery_user_clients_client (client_id),
+  CONSTRAINT fk_discovery_user_clients_user FOREIGN KEY (user_id) REFERENCES discovery_users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+    $pdo->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS discovery_invitations (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  token_hash CHAR(64) NOT NULL UNIQUE,
+  client_id VARCHAR(80) NOT NULL,
+  client_label VARCHAR(160) NOT NULL,
+  role VARCHAR(20) NOT NULL DEFAULT 'viewer',
+  expires_at DATETIME NOT NULL,
+  claimed_at DATETIME NULL,
+  claimed_by_user_id BIGINT UNSIGNED NULL,
+  revoked_at DATETIME NULL,
+  created_by VARCHAR(160) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_discovery_invitations_client (client_id),
+  INDEX idx_discovery_invitations_expiry (expires_at),
+  CONSTRAINT fk_discovery_invitations_user FOREIGN KEY (claimed_by_user_id) REFERENCES discovery_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+    fwrite(STDOUT, "Database and account migrations OK\n");
     exit(0);
 } catch (PDOException $e) {
     $mysqlCode = isset($e->errorInfo[1]) ? (int)$e->errorInfo[1] : 0;

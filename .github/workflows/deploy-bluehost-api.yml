@@ -6,7 +6,8 @@ on:
     branches: ["main"]
     paths:
       - "server/api/**"
-      - "server/tools/verify-db.php"
+      - "server/lib/**"
+      - "server/tools/**"
       - ".github/workflows/deploy-bluehost-api.yml"
 
 permissions:
@@ -47,10 +48,13 @@ jobs:
         env:
           DISCOVERY_RESULTS_VIEWER: ${{ secrets.DISCOVERY_RESULTS_VIEWER }}
           DISCOVERY_RESULTS_PASSWORD_HASH: ${{ secrets.DISCOVERY_RESULTS_PASSWORD_HASH }}
+          DISCOVERY_MANAGED_AUTH_ENABLED: ${{ secrets.DISCOVERY_MANAGED_AUTH_ENABLED }}
+          DISCOVERY_SUPABASE_URL: ${{ secrets.DISCOVERY_SUPABASE_URL }}
+          DISCOVERY_SUPABASE_ANON_KEY: ${{ secrets.DISCOVERY_SUPABASE_ANON_KEY }}
         run: |
           test -n "$DISCOVERY_RESULTS_VIEWER"
           test -n "$DISCOVERY_RESULTS_PASSWORD_HASH"
-          php -r '$config = ["username" => getenv("DISCOVERY_RESULTS_VIEWER"), "password_hash" => getenv("DISCOVERY_RESULTS_PASSWORD_HASH"), "timezone" => "America/Denver"]; file_put_contents("/tmp/oob-discovery-results.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n");'
+          php -r '$enabled = filter_var(getenv("DISCOVERY_MANAGED_AUTH_ENABLED") ?: "false", FILTER_VALIDATE_BOOL); if ($enabled && (trim((string)getenv("DISCOVERY_SUPABASE_URL")) === "" || trim((string)getenv("DISCOVERY_SUPABASE_ANON_KEY")) === "")) { fwrite(STDERR, "Managed auth is enabled but Supabase secrets are missing.\n"); exit(1); } $config = ["username" => getenv("DISCOVERY_RESULTS_VIEWER"), "password_hash" => getenv("DISCOVERY_RESULTS_PASSWORD_HASH"), "timezone" => "America/Denver", "managed_auth" => ["enabled" => $enabled, "supabase_url" => getenv("DISCOVERY_SUPABASE_URL") ?: "", "supabase_anon_key" => getenv("DISCOVERY_SUPABASE_ANON_KEY") ?: "", "site_url" => "https://api.oobcreative.com"]]; file_put_contents("/tmp/oob-discovery-results.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n");'
           php -l /tmp/oob-discovery-results.php
 
       - name: Deploy API endpoints and results workspace
@@ -59,10 +63,29 @@ jobs:
           BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
         run: |
           test -n "$BLUEHOST_SSH_USER"
-          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'mkdir -p /home1/reaqfvmy/api.oobcreative.com/discovery/submit /home1/reaqfvmy/api.oobcreative.com/discovery/results'
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'mkdir -p /home1/reaqfvmy/oob-discovery-lib /home1/reaqfvmy/api.oobcreative.com/discovery/submit /home1/reaqfvmy/api.oobcreative.com/discovery/results/invitations /home1/reaqfvmy/api.oobcreative.com/discovery/account/claim /home1/reaqfvmy/api.oobcreative.com/discovery/account/forgot /home1/reaqfvmy/api.oobcreative.com/discovery/account/confirm /home1/reaqfvmy/api.oobcreative.com/discovery/account/reset'
+          scp server/lib/*.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-lib/"
           scp server/api/discovery/submit/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/submit/index.php"
           scp server/api/discovery/results/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/results/index.php"
+          scp server/api/discovery/results/invitations/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/results/invitations/index.php"
+          scp server/api/discovery/account/claim/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/account/claim/index.php"
+          scp server/api/discovery/account/forgot/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/account/forgot/index.php"
+          scp server/api/discovery/account/confirm/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/account/confirm/index.php"
+          scp server/api/discovery/account/reset/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/account/reset/index.php"
           scp /tmp/oob-discovery-results.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-results.php"
+
+      - name: Migrate account storage
+        env:
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+        run: |
+          scp server/tools/migrate-db.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-migrate.php"
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
+            php /home1/reaqfvmy/oob-discovery-migrate.php
+            code=$?
+            rm -f /home1/reaqfvmy/oob-discovery-migrate.php
+            exit $code
+          '
 
       - name: Verify private configs and PHP
         env:
@@ -72,11 +95,12 @@ jobs:
           ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
             test -f /home1/reaqfvmy/oob-discovery-config.php &&
             test -f /home1/reaqfvmy/oob-discovery-results.php &&
-            chmod 600 /home1/reaqfvmy/oob-discovery-config.php /home1/reaqfvmy/oob-discovery-results.php &&
+            chmod 600 /home1/reaqfvmy/oob-discovery-config.php /home1/reaqfvmy/oob-discovery-results.php /home1/reaqfvmy/oob-discovery-lib/*.php &&
             test "$(stat -c %a /home1/reaqfvmy/oob-discovery-config.php)" = "600" &&
             test "$(stat -c %a /home1/reaqfvmy/oob-discovery-results.php)" = "600" &&
-            php -l /home1/reaqfvmy/api.oobcreative.com/discovery/submit/index.php &&
-            php -l /home1/reaqfvmy/api.oobcreative.com/discovery/results/index.php &&
+            find /home1/reaqfvmy/oob-discovery-lib /home1/reaqfvmy/api.oobcreative.com/discovery -type f -name "*.php" > /tmp/oob-discovery-php-files &&
+            while IFS= read -r file; do php -l "$file" || exit 1; done < /tmp/oob-discovery-php-files &&
+            rm -f /tmp/oob-discovery-php-files &&
             php -l /home1/reaqfvmy/oob-discovery-results.php
           '
 
@@ -90,5 +114,18 @@ jobs:
             php /home1/reaqfvmy/oob-discovery-verify-db.php
             code=$?
             rm -f /home1/reaqfvmy/oob-discovery-verify-db.php
+            exit $code
+          '
+
+      - name: Verify account storage contract
+        env:
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+        run: |
+          scp server/tools/verify-auth.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-verify-auth.php"
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
+            php /home1/reaqfvmy/oob-discovery-verify-auth.php
+            code=$?
+            rm -f /home1/reaqfvmy/oob-discovery-verify-auth.php
             exit $code
           '

@@ -12,13 +12,14 @@ It provides:
 - service, audience, pattern, and website-language sections;
 - an exact source JSON download;
 - an LLM-ready JSON export with submission provenance and analysis guardrails;
-- password authentication, secure sessions, CSRF protection, rate limiting, and no-store/no-index response headers.
+- invitation-based, client-scoped accounts with email verification and password reset;
+- secure sessions, CSRF protection, rate limiting, and no-store/no-index response headers.
 
 The browser never receives a database credential or a public list API. PHP reads the private database configuration on the server and renders only after authentication.
 
-## One-time access setup
+## Transitional shared access
 
-Generate a password hash locally. Do not place the plaintext password in GitHub or send it in chat.
+The existing shared login is retained temporarily as a system-administrator fallback while invitation-based accounts are configured and tested. Do not create a new hash if the existing login still works, and do not place the plaintext password in GitHub or send it in chat.
 
 ```bash
 php -r "echo password_hash('choose-a-strong-password', PASSWORD_DEFAULT), PHP_EOL;"
@@ -31,7 +32,9 @@ DISCOVERY_RESULTS_VIEWER
 DISCOVERY_RESULTS_PASSWORD_HASH
 ```
 
-The deploy workflow writes those values to `/home1/reaqfvmy/oob-discovery-results.php` with mode `600`. The file is outside the public web root and is never committed.
+The deploy workflow writes those values to `/home1/reaqfvmy/oob-discovery-results.php` with mode `600`. The file is outside the public web root and is never committed. GitHub intentionally never redisplays a saved secret; an empty update field does not mean its stored value is empty.
+
+See [`AUTH.md`](AUTH.md) for the new invitation/account flow, Supabase setup, email templates, deployment secrets, and safe retirement sequence for the shared login.
 
 ## Export contract
 
