@@ -17,6 +17,7 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--paper); color: var(--ink); line-height: 1.65; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 a { color: inherit; }
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
@@ -107,9 +108,16 @@ input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible
 .persona-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .persona-choice { padding: clamp(1.25rem, 2.5vw, 2rem); display: flex; align-items: flex-start; flex-direction: column; border: 1px solid; background: #fafaf8; }
 .persona-choice p { max-width: 42rem; }
-.persona-choice .button { margin-top: auto; }
+.persona-choice .persona-full-button { width: 100%; margin-top: auto; }
 .persona-signals { color: var(--soft); font-size: .9rem; }
 .persona-choice-new { background: #fff; }
+.persona-decision { width: 100%; margin: 1.4rem 0 0; padding: 1.25rem 0 0; border: 0; border-top: 1px solid var(--line); }
+.persona-decision legend { margin-bottom: .75rem; font-size: .86rem; font-weight: 700; line-height: 1.4; }
+.persona-decision-grid { display: grid; gap: .55rem; }
+.persona-decision-button { display: grid; grid-template-columns: 1.6rem 1fr; align-items: center; gap: .55rem; width: 100%; min-height: 48px; padding: .7rem .8rem; border: 1px solid #999; background: #fff; color: var(--ink); text-align: left; line-height: 1.25; }
+.persona-decision-button:hover, .persona-decision-button:focus-visible, .persona-decision-button.is-selected { border-color: var(--ink); background: var(--ink); color: #fff; }
+.persona-decision-button:disabled { border-color: #bbb; background: #eee; color: #777; }
+.persona-choice-status { min-height: 1.5em; margin: .7rem 0 0; color: var(--muted); font-size: .8rem; }
 .empty-persona-state { margin: 0; padding: 1.5rem; border: 1px dashed #999; color: var(--muted); }
 .source-persona { margin: 0 0 1.75rem; padding: 1.25rem; border-left: 5px solid; background: #fff; }
 .source-persona > p { margin-bottom: .75rem; }
@@ -118,6 +126,21 @@ input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible
 .source-persona-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.5rem; }
 .source-persona-grid strong { display: block; margin-bottom: .35rem; }
 .source-persona-grid ul { margin: 0; padding-left: 1.2rem; }
+.decision-summary { margin-bottom: 1.25rem; padding: .85rem 1rem; border-left: 5px solid; background: var(--subtle); }
+.decision-summary .text-button { margin-left: .5rem; }
+.profile-review { margin: 0 0 2rem; padding: clamp(1.1rem, 2.5vw, 1.75rem); border: 1px solid; background: #fff; }
+.profile-review-intro { max-width: 760px; margin-bottom: 1.5rem; }
+.profile-review-intro h4 { margin: 0 0 .4rem; font-size: 1.2rem; }
+.profile-review-intro p { margin-bottom: 0; color: var(--soft); }
+.profile-section { padding: 1.25rem 0; border-top: 1px solid var(--line); }
+.profile-section h4 { margin: 0 0 .75rem; font-size: 1rem; }
+.profile-items { display: grid; gap: .5rem; margin-bottom: .75rem; }
+.profile-item { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); align-items: stretch; border: 1px solid #aaa; background: #fff; }
+.profile-item:has([data-profile-selected]:checked) { border-color: var(--ink); box-shadow: inset 5px 0 0 var(--ink); }
+.profile-check { display: grid; margin: 0; place-items: center; }
+.profile-check input { width: 1rem; height: 1rem; margin: 0; accent-color: var(--ink); }
+.profile-item textarea { min-width: 0; min-height: 64px; padding: .7rem .8rem; border: 0; border-left: 1px solid var(--line); resize: vertical; }
+.profile-item:has([data-profile-selected]:not(:checked)) textarea { color: var(--muted); text-decoration: line-through; }
 .legacy-keywords { margin: 1.5rem 0 2rem; padding: 1rem 1.1rem; border: 1px solid; background: #fff; }
 .legacy-keywords summary { cursor: pointer; font-weight: 700; }
 .legacy-keywords[open] summary { margin-bottom: .9rem; }
@@ -144,6 +167,16 @@ input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible
 .dialog { width: min(620px, calc(100% - 2rem)); padding: 2rem; border: 1px solid; border-radius: 0; box-shadow: 0 18px 60px rgba(0, 0, 0, .2); }
 .dialog::backdrop { background: rgba(17, 17, 17, .55); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1.5rem; }
+.persona-study-dialog { width: min(920px, calc(100% - 2rem)); max-height: calc(100vh - 2rem); padding: 0; }
+.persona-study-header { position: sticky; z-index: 2; top: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.35rem clamp(1.25rem, 4vw, 2.5rem); border-bottom: 1px solid; background: #fff; }
+.persona-study-header h2 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.8rem); }
+.persona-study-notice { margin: 0; padding: 1rem clamp(1.25rem, 4vw, 2.5rem); border-bottom: 1px solid; background: var(--subtle); font-weight: 700; }
+.persona-study-content { max-width: 760px; margin-inline: auto; padding: clamp(1.5rem, 4vw, 3rem); }
+.persona-study-content h4 { margin: 2.25rem 0 .65rem; padding-top: 1.25rem; border-top: 1px solid var(--line); font-size: 1.25rem; }
+.persona-study-content li + li { margin-top: .75rem; }
+.persona-study-content a { overflow-wrap: anywhere; text-underline-offset: .18em; }
+.persona-study-name { font-size: 1.35rem; line-height: 1.35; }
+.persona-study-footer { position: sticky; z-index: 2; bottom: 0; display: flex; justify-content: flex-end; padding: 1rem clamp(1.25rem, 4vw, 2.5rem); border-top: 1px solid; background: #fff; }
 .runtime-banner { margin: 0 0 1.25rem; padding: 1rem; border: 1px solid #b49522; background: #fff6d8; }
 .hidden { display: none !important; }
 
@@ -161,6 +194,8 @@ input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible
   .form-actions > button { width: 100%; }
   .text-button { margin: .75rem 0 0; }
   .dialog-actions { align-items: stretch; flex-direction: column; }
+  .persona-study-header { align-items: stretch; flex-direction: column; }
+  .persona-study-header .button, .persona-study-footer .button { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
