@@ -1,13 +1,13 @@
-import { systemConfig } from "./system-config.js?v=0.4.0";
-import { clinicianCore } from "../config/clinician-core.js?v=0.4.0";
-import { varettoConfig } from "../config/varetto.js?v=0.4.0";
+import { systemConfig } from "./system-config.js?v=0.5.0";
+import { clinicianCore } from "../config/clinician-core.js?v=0.5.0";
+import { varettoConfig } from "../config/varetto.js?v=0.5.0";
 
 const config = varettoConfig;
 const app = document.querySelector("#app");
 const dictationDialog = document.querySelector("#dictation-notice");
 const patternCache = new Map();
-let patternSequence = 1;
-let patternOrder = ["audience-pattern-1"];
+let patternSequence = 0;
+let patternOrder = [];
 let activeRecognition = null;
 let autosaveTimer = null;
 let startedAt = new Date().toISOString();
@@ -57,28 +57,48 @@ function radioList(prefix, options, className = "choice-list") {
   `).join("")}</div>`;
 }
 
+function sourceList(title, items = []) {
+  return `<div><strong>${esc(title)}</strong><ul>${items.map(item => `<li>${esc(item)}</li>`).join("")}</ul></div>`;
+}
+
 function nextPatternId() {
   patternSequence += 1;
   return `audience-pattern-${patternSequence}`;
 }
 
-function renderPatternQuestion(patternId, question, index) {
+function renderStartingPersona(archetype, index) {
+  return `<article class="persona-choice" data-persona-choice="${esc(archetype.id)}">
+    <div>
+      <p class="eyebrow">Original persona ${index + 1}</p>
+      <h3>${esc(archetype.title)}</h3>
+    </div>
+    <p>${esc(archetype.summary)}</p>
+    <p class="persona-signals"><strong>Original signals:</strong> ${esc(archetype.originalSignals)}</p>
+    <button type="button" class="button secondary" data-add-persona="${esc(archetype.id)}">Edit this persona</button>
+  </article>`;
+}
+
+function renderPatternQuestion(patternId, question, index, pattern) {
   const questionNumber = `P${index + 1}.${question.number}`;
   const questionKey = `${patternId}-${question.key}`;
-  if (question.type === "evidence") {
+  if (question.type === "foundation") {
+    const usesOriginalPersona = pattern.sourceArchetypeId !== "new";
     return `<fieldset class="field evidence-field" data-question="${esc(questionKey)}">
-      <legend><span class="question-number question-number-wide">${esc(questionNumber)}</span>${esc(question.label)}</legend>
+      <legend><span class="question-number question-number-wide">${esc(questionNumber)}</span>${esc(usesOriginalPersona ? question.label : "What is this new audience based on?")}</legend>
       <p class="help">${esc(question.help)}</p>
-      <p class="subquestion">Relationship to the intended practice</p>
-      ${radioList(`pattern.${patternId}.basis`, config.audienceBasisOptions, "choice-list compact")}
+      ${usesOriginalPersona ? `
+        <p class="subquestion">Direction for the original persona</p>
+        ${radioList(`pattern.${patternId}.decision`, config.baselineStudy.decisionOptions, "choice-list compact")}
+        <p class="subquestion">Current service relevance</p>
+        ${radioList(`pattern.${patternId}.scope`, config.baselineStudy.scopeOptions, "choice-list compact")}
+      ` : `
+        <p class="subquestion">Relationship to the intended practice</p>
+        ${radioList(`pattern.${patternId}.basis`, config.audienceBasisOptions, "choice-list compact")}
+      `}
       <p class="subquestion">Sources informing this description</p>
       ${checkboxList(`pattern.${patternId}.evidence`, config.evidenceSourceOptions, "choice-list compact")}
-    </fieldset>`;
-  }
-  if (question.type === "conditions") {
-    return `<fieldset class="field condition-field" data-question="${esc(questionKey)}">
-      <legend><span class="question-number question-number-wide">${esc(questionNumber)}</span>${esc(question.label)}</legend>
-      <p class="help">${esc(question.help)}</p>
+      <p class="subquestion">Clinical concerns that may modify the presentation</p>
+      <p class="help">These are dimensions or co-occurring contexts—not defining traits and not evidence that everyone in this audience has the same diagnosis.</p>
       ${checkboxList(`pattern.${patternId}.conditions`, config.conditionOptions, "choice-list compact")}
     </fieldset>`;
   }
@@ -92,21 +112,42 @@ function renderPatternQuestion(patternId, question, index) {
 }
 
 function renderPatternCard(patternId, index) {
-  return `<article class="pattern-card" data-audience-id="${esc(patternId)}">
+  const pattern = patternCache.get(patternId) || {};
+  const usesOriginalPersona = pattern.sourceArchetypeId !== "new";
+  const sourceTitle = pattern.sourceArchetypeTitle || "New therapy audience";
+  const sourcePersona = config.baselineStudy.archetypes.find(archetype => archetype.id === pattern.sourceArchetypeId);
+  const heading = usesOriginalPersona ? `Edit ${sourceTitle}` : "Create a new therapy audience";
+  const labelHelp = usesOriginalPersona
+    ? "Keep the original title or rename it around the central tension if that would reduce demographic, occupational, or diagnostic stereotyping."
+    : "Name the central tension or help-seeking position—not a fictional person, diagnosis, occupation, or demographic stereotype.";
+  return `<article class="pattern-card" data-audience-id="${esc(patternId)}" data-source-archetype-id="${esc(pattern.sourceArchetypeId || "new")}" data-source-archetype-title="${esc(sourceTitle)}" data-source-archetype-summary="${esc(pattern.sourceArchetypeSummary || "")}">
     <div class="pattern-heading">
       <div>
-        <p class="eyebrow">Candidate audience pattern ${index + 1}</p>
-        <h3>Describe one recognizable audience.</h3>
+        <p class="eyebrow">Persona worksheet ${index + 1}</p>
+        <h3>${esc(heading)}</h3>
       </div>
-      ${patternOrder.length > 1 ? `<button type="button" class="text-button remove-pattern" data-remove-pattern="${esc(patternId)}">Remove this pattern</button>` : ""}
+      <button type="button" class="text-button remove-pattern" data-remove-pattern="${esc(patternId)}">Remove this worksheet</button>
     </div>
+    ${usesOriginalPersona ? `<div class="source-persona"><strong>Starting hypothesis from the original study</strong><p>${esc(pattern.sourceArchetypeSummary || "")}</p>
+      <details class="source-persona-details">
+        <summary>Review the original persona data</summary>
+        <p class="help">This source material was developed for recovery housing before therapy services were added. Confirm, revise, or reject it in the questions below; do not assume its feelings, influencers, barriers, or search language apply unchanged.</p>
+        <div class="source-persona-grid">
+          ${sourceList("Feelings proposed in the study", sourcePersona?.feelings)}
+          ${sourceList("Questions and search language", sourcePersona?.questions)}
+          ${sourceList("Potential influencers", sourcePersona?.influencers)}
+          ${sourceList("Influencer concerns and questions", sourcePersona?.influencerQuestions)}
+          ${sourceList("Barriers proposed in the study", sourcePersona?.barriers)}
+        </div>
+      </details>
+    </div>` : ""}
     <div class="field" data-question="${esc(patternId)}-working-label">
-      <label for="${esc(patternId)}-workingLabel"><span class="question-number question-number-wide">P${index + 1}.0</span>Give this pattern a short, neutral working label.</label>
-      <p class="help">Name the central tension or help-seeking position—not a fictional person, diagnosis, occupation, or demographic stereotype. Example: “Protecting competence while privately questioning control.”</p>
+      <label for="${esc(patternId)}-workingLabel"><span class="question-number question-number-wide">P${index + 1}.0</span>${usesOriginalPersona ? "Keep or revise the working title." : "Give this persona a short, neutral working title."}</label>
+      <p class="help">${esc(labelHelp)} Example: “Protecting competence while privately questioning control.”</p>
       <input id="${esc(patternId)}-workingLabel" name="${esc(patternId)}.workingLabel" type="text" maxlength="240" data-pattern-key="workingLabel">
     </div>
     <div class="pattern-questions">
-      ${clinicianCore.patternQuestions.map(question => renderPatternQuestion(patternId, question, index)).join("")}
+      ${clinicianCore.patternQuestions.map(question => renderPatternQuestion(patternId, question, index, pattern)).join("")}
     </div>
   </article>`;
 }
@@ -122,6 +163,10 @@ function render() {
         <span class="meta-pill">${esc(systemConfig.estimatedMinutes)}</span>
         <span class="meta-pill">Most questions are optional</span>
         <span class="meta-pill">Draft saves in this browser</span>
+      </div>
+      <div class="voice-guidance">
+        <strong>Use your own voice.</strong>
+        <p>The microphone can make this faster. Speak naturally and do not polish away uncertainty, contradiction, or nuance; those details help us distinguish audiences and later craft content that sounds more like you. You may paste material from a writing or AI tool you already use if it accurately reflects your judgment. Review it first, and never include identifying patient information in this form or an external AI tool.</p>
       </div>
       <div class="notice">
         <strong>${esc(config.intro.boundary)}</strong>
@@ -147,37 +192,58 @@ function render() {
         <div class="field"><label for="respondentEmail">Email</label><input id="respondentEmail" name="respondent.email" type="email" autocomplete="email"></div>
       </section>
 
-      <section class="form-section" data-section>
+      <section class="form-section" id="persona-start-section" data-section>
         <div class="section-copy">
-          <p class="eyebrow">1 · Practice reality</p>
-          <h2>Define the service and population boundaries.</h2>
-          <p>Start with what will actually be available. This prevents a compelling audience pattern from being mistaken for a service, specialty, or level of care Varetto cannot provide.</p>
+          <p class="eyebrow">1 · Choose a starting persona</p>
+          <h2>Who would you like to understand more clearly?</h2>
+          <p>The four original personas are working hypotheses from before therapy services were added. Choose one to sharpen, revise, combine, or retire. You can return here to open another separate worksheet, or create a therapy audience the original study missed.</p>
+          <p>${esc(config.baselineStudy.context)}</p>
+          <details class="legacy-keywords">
+            <summary>Review the original cross-persona keyword themes</summary>
+            <p>${esc(config.baselineStudy.legacyKeywordContext)}</p>
+            <div class="source-persona-grid">${config.baselineStudy.legacyKeywordGroups.map(group => sourceList(group.title, group.items)).join("")}</div>
+          </details>
         </div>
-        <fieldset class="field" data-question="1">
-          <legend><span class="question-number">1</span>Which therapy services will Varetto offer when the website launches?</legend>
-          ${checkboxList("service", config.serviceOptions)}
-        </fieldset>
-        <fieldset class="field" data-question="2">
-          <legend><span class="question-number">2</span>Which care or recovery contexts can these services support?</legend>
-          ${checkboxList("recipient", config.recipientOptions)}
-        </fieldset>
-        ${narrativeField("currentPopulation", "Which populations are already represented in Varetto’s clinical experience?", "Describe recurring groups or patterns rather than individual cases. Note what is well established versus occasional.", 3, "3")}
-        ${narrativeField("intendedPopulation", "Which populations does Varetto intentionally want to serve more?", "This may be aspirational. Identify it as a future-practice direction rather than presenting it as existing clinical evidence.", 4, "4")}
-        ${narrativeField("practicalLimits", "What clinical, practical, or access boundaries should constrain the audience strategy?", "Consider age, location, licensure, in-person or virtual availability, payment, scheduling, stability, acuity, level of care, and referral thresholds.", 5, "5")}
-        ${narrativeField("honestPromise", "What can Varetto honestly promise about the experience of care?", "Describe process, stance, safety, collaboration, and therapeutic approach—not guaranteed outcomes or universal fit.", 6, "6")}
+        <div class="persona-choice-grid">
+          ${config.baselineStudy.archetypes.map(renderStartingPersona).join("")}
+          <article class="persona-choice persona-choice-new">
+            <div><p class="eyebrow">Therapy expansion</p><h3>Create a new persona</h3></div>
+            <p>Start from recurring clinical experience or a clearly labeled future-audience hypothesis when none of the four original profiles captures the underlying pattern.</p>
+            <button type="button" class="button" data-add-persona="new">Create a new persona</button>
+          </article>
+        </div>
       </section>
 
       <section class="form-section" id="audience-detail-section" data-section>
         <div class="section-copy">
-          <p class="eyebrow">2 · Candidate audiences</p>
-          <h2>Describe one audience pattern at a time.</h2>
-          <p>Begin with the primary audience. Add another only when its motivation, decision process, language, trust requirement, or service pathway is meaningfully different. A different diagnosis, occupation, age, or recovery stage may be context for the same underlying archetype.</p>
+          <p class="eyebrow">2 · Sharpen the persona</p>
+          <h2>Follow the pattern toward connection and healing.</h2>
+          <p>Each selected persona stays in its own worksheet. The questions move from the person’s organizing tension and protective coping toward the threshold for help, ambivalence, trust, language, and a credible direction for healing.</p>
         </div>
-        <div id="audience-patterns"></div>
+        <div id="audience-patterns"><p class="empty-persona-state">Choose a starting persona above to open its worksheet.</p></div>
         <div class="pattern-actions">
-          <button type="button" class="button secondary" id="add-pattern">Add another audience pattern</button>
           <p class="help" id="pattern-count"></p>
         </div>
+      </section>
+
+      <section class="form-section" data-section>
+        <div class="section-copy">
+          <p class="eyebrow">3 · Practice reality</p>
+          <h2>Connect the persona to what Varetto can actually offer.</h2>
+          <p>These boundaries prevent a compelling persona from being mistaken for a service, specialty, or level of care Varetto cannot provide.</p>
+        </div>
+        <fieldset class="field" data-question="practice-1">
+          <legend><span class="question-number">1</span>Which therapy services will Varetto offer when the website launches?</legend>
+          ${checkboxList("service", config.serviceOptions)}
+        </fieldset>
+        <fieldset class="field" data-question="practice-2">
+          <legend><span class="question-number">2</span>Which care or recovery contexts can these services support?</legend>
+          ${checkboxList("recipient", config.recipientOptions)}
+        </fieldset>
+        ${narrativeField("currentPopulation", "Which populations are already represented in Varetto’s clinical experience?", "Describe recurring groups or patterns rather than individual cases. Note what is well established versus occasional.", 3, "practice-3")}
+        ${narrativeField("intendedPopulation", "Which populations does Varetto intentionally want to serve more?", "This may be aspirational. Identify it as a future-practice direction rather than presenting it as existing clinical evidence.", 4, "practice-4")}
+        ${narrativeField("practicalLimits", "What clinical, practical, or access boundaries should constrain the audience strategy?", "Consider age, location, licensure, in-person or virtual availability, payment, scheduling, stability, acuity, level of care, and referral thresholds.", 5, "practice-5")}
+        ${narrativeField("honestPromise", "What can Varetto honestly promise about the experience of care?", "Describe process, stance, safety, collaboration, and therapeutic approach—not guaranteed outcomes or universal fit.", 6, "practice-6")}
       </section>
 
       <div id="validation-output" class="notice hidden"></div>
@@ -206,6 +272,11 @@ function collectCurrentPatterns() {
   return [...document.querySelectorAll(".pattern-card")].map(card => {
     const result = {
       audienceId: card.dataset.audienceId,
+      sourceArchetypeId: card.dataset.sourceArchetypeId || "new",
+      sourceArchetypeTitle: card.dataset.sourceArchetypeTitle || "New therapy audience",
+      sourceArchetypeSummary: card.dataset.sourceArchetypeSummary || "",
+      reviewDecision: "",
+      therapyScope: "",
       audienceBasis: "",
       evidenceSources: [],
       clinicalContext: []
@@ -216,6 +287,12 @@ function collectCurrentPatterns() {
     const basis = card.querySelector(`input[name="pattern.${CSS.escape(card.dataset.audienceId)}.basis"]:checked`);
     const basisOption = config.audienceBasisOptions.find(item => item.id === basis?.value);
     result.audienceBasis = basisOption?.label || "";
+    const decision = card.querySelector(`input[name="pattern.${CSS.escape(card.dataset.audienceId)}.decision"]:checked`);
+    const decisionOption = config.baselineStudy.decisionOptions.find(item => item.id === decision?.value);
+    result.reviewDecision = decisionOption?.label || "";
+    const scope = card.querySelector(`input[name="pattern.${CSS.escape(card.dataset.audienceId)}.scope"]:checked`);
+    const scopeOption = config.baselineStudy.scopeOptions.find(item => item.id === scope?.value);
+    result.therapyScope = scopeOption?.label || "";
     card.querySelectorAll(`input[name^="pattern.${CSS.escape(card.dataset.audienceId)}.evidence."]:checked`).forEach(input => {
       const option = config.evidenceSourceOptions.find(item => item.id === input.value);
       result.evidenceSources.push(option?.label || input.value);
@@ -237,6 +314,20 @@ function populatePatternCard(card, existing = {}) {
     if (key === "audienceBasis" && typeof value === "string") {
       card.querySelectorAll(`input[name="pattern.${CSS.escape(card.dataset.audienceId)}.basis"]`).forEach(input => {
         const option = config.audienceBasisOptions.find(item => item.id === input.value);
+        input.checked = value === (option?.label || input.value);
+      });
+      return;
+    }
+    if (key === "reviewDecision" && typeof value === "string") {
+      card.querySelectorAll(`input[name="pattern.${CSS.escape(card.dataset.audienceId)}.decision"]`).forEach(input => {
+        const option = config.baselineStudy.decisionOptions.find(item => item.id === input.value);
+        input.checked = value === (option?.label || input.value);
+      });
+      return;
+    }
+    if (key === "therapyScope" && typeof value === "string") {
+      card.querySelectorAll(`input[name="pattern.${CSS.escape(card.dataset.audienceId)}.scope"]`).forEach(input => {
+        const option = config.baselineStudy.scopeOptions.find(item => item.id === input.value);
         input.checked = value === (option?.label || input.value);
       });
       return;
@@ -275,15 +366,22 @@ function syncAudiencePanels(restoredPatterns = null) {
     if (restoredOrder.length) patternOrder = restoredOrder.slice(0, config.maxAudiencePatterns);
   }
   const container = document.querySelector("#audience-patterns");
-  container.innerHTML = patternOrder.map(renderPatternCard).join("");
+  container.innerHTML = patternOrder.length
+    ? patternOrder.map(renderPatternCard).join("")
+    : '<p class="empty-persona-state">Choose a starting persona above to open its worksheet.</p>';
   container.querySelectorAll(".pattern-card").forEach(card => populatePatternCard(card, patternCache.get(card.dataset.audienceId) || {}));
-  const addButton = document.querySelector("#add-pattern");
   const atLimit = patternOrder.length >= config.maxAudiencePatterns;
-  addButton.disabled = atLimit;
-  addButton.classList.toggle("hidden", atLimit);
+  const selectedOriginalIds = new Set([...patternCache.values()].map(pattern => pattern.sourceArchetypeId).filter(id => id && id !== "new"));
+  document.querySelectorAll("[data-add-persona]").forEach(button => {
+    const alreadySelected = selectedOriginalIds.has(button.dataset.addPersona);
+    button.disabled = atLimit || alreadySelected;
+    if (alreadySelected) button.textContent = "Worksheet opened";
+    else if (button.dataset.addPersona === "new") button.textContent = "Create a new persona";
+    else button.textContent = "Edit this persona";
+  });
   document.querySelector("#pattern-count").textContent = atLimit
-    ? `Maximum of ${config.maxAudiencePatterns} candidate patterns reached.`
-    : `${patternOrder.length} of up to ${config.maxAudiencePatterns} candidate patterns.`;
+    ? `Maximum of ${config.maxAudiencePatterns} persona worksheets reached.`
+    : `${patternOrder.length} of up to ${config.maxAudiencePatterns} persona worksheets opened.`;
   wireDictation(container);
   updateProgress();
 }
@@ -299,10 +397,20 @@ function wireEvents() {
     updateProgress();
   });
   form.addEventListener("click", event => {
-    const addButton = event.target.closest("#add-pattern");
-    if (addButton && patternOrder.length < config.maxAudiencePatterns) {
+    const personaButton = event.target.closest("[data-add-persona]");
+    if (personaButton && patternOrder.length < config.maxAudiencePatterns) {
       cacheCurrentPatterns();
+      const sourceId = personaButton.dataset.addPersona;
+      if (sourceId !== "new" && [...patternCache.values()].some(pattern => pattern.sourceArchetypeId === sourceId)) return;
+      const source = config.baselineStudy.archetypes.find(archetype => archetype.id === sourceId);
       const id = nextPatternId();
+      patternCache.set(id, {
+        audienceId: id,
+        sourceArchetypeId: source?.id || "new",
+        sourceArchetypeTitle: source?.title || "New therapy audience",
+        sourceArchetypeSummary: source?.summary || "",
+        workingLabel: source?.title || ""
+      });
       patternOrder.push(id);
       syncAudiencePanels();
       document.querySelector(`[data-audience-id="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -310,7 +418,7 @@ function wireEvents() {
       return;
     }
     const removeButton = event.target.closest("[data-remove-pattern]");
-    if (removeButton && patternOrder.length > 1) {
+    if (removeButton) {
       cacheCurrentPatterns();
       const id = removeButton.dataset.removePattern;
       patternOrder = patternOrder.filter(patternId => patternId !== id);
@@ -483,7 +591,7 @@ function collectAudienceSummaries(patterns) {
   return patterns.map((pattern, index) => ({
     id: pattern.audienceId,
     title: pattern.workingLabel || `Audience pattern ${index + 1}`,
-    situation: pattern.helpSeekingState || ""
+    situation: pattern.helpSeekingThreshold || ""
   }));
 }
 
@@ -530,7 +638,14 @@ function validate() {
   const errors = [];
   const email = document.querySelector("#respondentEmail");
   if (email?.value && !email.validity.valid) errors.push("Enter a valid email address or leave the email field blank.");
-  if (collectPatterns().length === 0) errors.push("Describe at least one candidate audience pattern before submitting.");
+  const patterns = collectPatterns();
+  if (patterns.length === 0) errors.push("Choose at least one original persona to edit, or create a new persona.");
+  patterns.forEach(pattern => {
+    if (!pattern.workingLabel) errors.push(`Add a working title for ${pattern.sourceArchetypeTitle}.`);
+    if (pattern.sourceArchetypeId === "new" && !pattern.audienceBasis) errors.push(`Choose what the new ${pattern.workingLabel || "persona"} is based on.`);
+    if (pattern.sourceArchetypeId !== "new" && !pattern.reviewDecision) errors.push(`Choose how the original ${pattern.sourceArchetypeTitle} persona should move forward.`);
+    if (pattern.sourceArchetypeId !== "new" && !pattern.therapyScope) errors.push(`Choose where the original ${pattern.sourceArchetypeTitle} persona belongs now.`);
+  });
   if (!document.querySelector("#privacy-acknowledgment").checked) errors.push("Confirm that patient examples have been kept anonymous before submitting.");
   return errors;
 }

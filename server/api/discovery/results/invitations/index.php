@@ -65,7 +65,16 @@ $body = '<a class="toplink" href="/discovery/results/">← Results workspace</a>
 if ($error) $body .= '<p class="notice notice-error" role="alert">' . oobEscape($error) . '</p>';
 if ($created) {
     $claimUrl = oobSiteUrl($accessConfig) . '/discovery/account/claim/?token=' . rawurlencode((string)$created['token']);
-    $emailText = "You’re invited to view " . $created['client_label'] . " discovery results.\n\nCreate or connect your private account before " . $created['expires_at'] . " UTC:\n" . $claimUrl . "\n\nThis link can be used once. If you did not expect it, contact the sender.";
+    $questionnaireUrl = 'https://discovery.oobcreative.com/clinician/';
+    $emailText = "Subject: Your private " . $created['client_label'] . " Discovery invitation\n\n"
+        . "Hi [Name],\n\n"
+        . "This is your individual invitation to the " . $created['client_label'] . " Discovery process.\n\n"
+        . "1. Create your private account before " . $created['expires_at'] . " UTC:\n" . $claimUrl . "\n"
+        . "2. Check your email and use the verification link.\n"
+        . "3. Open the persona questionnaire:\n" . $questionnaireUrl . "\n\n"
+        . "Please plan for 30–45 minutes for one persona worksheet. Use the microphone if it helps you respond naturally. Nuance, uncertainty, and your own word choice are useful; polished marketing language is not required.\n\n"
+        . "Do not include patient names or any detail that could identify an individual. This account link is single-use and intended only for you.\n\n"
+        . "Thank you,\nRodney";
     $body .= '<section class="card"><p class="eyebrow">Created once</p><h2>Copy this invitation now</h2><p class="notice notice-success">For security, the complete link will not be shown again.</p><p class="mono">' . oobEscape($claimUrl) . '</p><label for="email-copy"><strong>Formatted message</strong></label><p id="email-copy" class="mono">' . nl2br(oobEscape($emailText)) . '</p></section><div class="rule"></div>';
 }
 

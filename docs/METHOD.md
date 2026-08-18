@@ -8,7 +8,7 @@ This is a professional website-content interview. It is not a patient intake, di
 
 ## Why the clinician does not create the final persona
 
-Asking a respondent to invent a finished character too early encourages anchoring and may collapse diagnosis, occupation, age, recovery stage, and current distress into fixed personality traits. Version 4 instead collects candidate audience patterns. oobCREATIVE performs overlap analysis afterward and returns proposed archetypes for clinician review.
+Asking a respondent to invent a finished character too early encourages anchoring and may collapse diagnosis, occupation, age, recovery stage, and current distress into fixed personality traits. Version 5 starts with the four pre-therapy personas as visible hypotheses. A clinician selects one to edit or creates a new therapy-audience hypothesis. The source persona and the clinician's response remain distinct in the stored record. oobCREATIVE performs overlap analysis afterward and returns proposed archetypes for clinician review.
 
 The clinician supplies source knowledge. The system structures it. Later analysis proposes synthesis without changing the original response.
 
@@ -23,14 +23,17 @@ A difference in diagnosis, substance, age, occupation, or recovery stage does no
 
 ## Discovery sequence
 
-1. **Define practice reality** — confirm launch services, eligible contexts, current population experience, intended growth populations, access constraints, and honest process promises.
-2. **Describe the primary candidate audience** — use a short, neutral label based on the central tension or help-seeking position rather than a fictional name or stereotype.
-3. **Qualify the evidence** — distinguish direct client language, repeated observation, collateral information, professional inference, and future-practice hypotheses.
-4. **Separate context from state** — record relatively stable roles, values, pressures, and resources separately from the presenting moment.
-5. **Capture function and meaning** — describe what the current coping pattern may regulate, avoid, preserve, or provide and what everyday change is desired.
-6. **Capture audience-specific language** — keep search language, recognition needs, trust signals, and alienating language inside the same audience record.
-7. **Add another pattern only when needed** — collect up to four candidates when motivation, decision process, trust requirement, language, or service pathway is meaningfully different.
-8. **Analyze downstream** — compare patterns, propose merges and distinctions, and seek clinician confirmation before treating them as communication archetypes.
+1. **Choose a starting persona** — select one of the four original recovery personas or create a new therapy-audience hypothesis.
+2. **Keep source and edit separate** — show the original audience, feelings, questions, influencers, barriers, and recovery search language without pre-filling the clinician's answers.
+3. **Set direction and qualify evidence** — retain, revise, combine, retire, or mark the source persona uncertain; distinguish direct client language, repeated observation, collateral information, professional inference, and future-practice hypotheses.
+4. **Find the organizing tension** — identify what the person is trying to protect, preserve, or prove and what is becoming difficult to sustain.
+5. **Separate identity from the help-seeking threshold** — distinguish roles and values from the state, event, cost, rupture, or readiness shift that makes help thinkable now.
+6. **Capture function, cost, and ambivalence** — describe the short-term protective function of the coping pattern, its longer-term cost, and the two truths the person may hold simultaneously.
+7. **Map the relational bridge** — identify what Varetto must understand or communicate before engagement feels safe enough and who recognizes, searches, decides, or initiates contact.
+8. **Name language and healing direction** — retain or replace the source study's search language, identify alienating language, and describe meaningful movement in ordinary life without promising an outcome.
+9. **Define practice reality** — connect the persona to launch services, eligible contexts, current experience, intended growth, access constraints, and honest process promises.
+10. **Add another worksheet only when needed** — keep every audience in a separate record and collect up to five worksheets.
+11. **Analyze downstream** — compare patterns, propose merges and distinctions, and seek clinician confirmation before treating them as communication archetypes.
 
 ## Narrowing heuristic
 
@@ -51,7 +54,7 @@ This is a transparent content-strategy heuristic, not a validated clinical score
 
 Stakeholder responses may contain observation, reported language, collateral knowledge, professional inference, and planning hypotheses. The form labels these sources rather than flattening them into one level of certainty.
 
-Preserve every submitted payload unchanged. Store later LLM analysis, research synthesis, archetype development, or content recommendations separately and identify them as interpretation.
+Preserve every submitted payload unchanged. Store later LLM analysis, research synthesis, archetype development, or content recommendations separately and identify them as interpretation. The pre-therapy study is source material, not clinician testimony; a response must preserve which original persona, if any, the clinician selected.
 
 ## Ethical communication boundary
 

@@ -158,7 +158,9 @@ $questionnaireVersion = requireString($payload, 'questionnaireVersion', 80, $err
 $usesV2Contract = substr($questionnaireVersion, -3) === '-v2';
 $usesV3Contract = substr($questionnaireVersion, -3) === '-v3';
 $usesV4Contract = substr($questionnaireVersion, -3) === '-v4';
-$usesModernContract = $usesV3Contract || $usesV4Contract;
+$usesV5Contract = substr($questionnaireVersion, -3) === '-v5';
+$usesAudienceMapContract = $usesV4Contract || $usesV5Contract;
+$usesModernContract = $usesV3Contract || $usesAudienceMapContract;
 if ($system !== 'oobDISCOVERY') $errors[] = 'system is invalid.';
 if ($discoveryType !== 'clinician') $errors[] = 'discoveryType is invalid.';
 
@@ -198,7 +200,7 @@ if ($usesModernContract) {
     if (!isAssocArray($services)) { $errors[] = 'services must be an object.'; $services = []; }
     validateStringArray($services['offered'] ?? null, 'services.offered', 30, 240, $errors);
     validateStringArray($services['recipients'] ?? null, 'services.recipients', 30, 240, $errors);
-    if ($usesV4Contract) {
+    if ($usesAudienceMapContract) {
         requireString($services, 'currentPopulation', 10000, $errors, true);
         requireString($services, 'intendedPopulation', 10000, $errors, true);
     }
@@ -206,14 +208,14 @@ if ($usesModernContract) {
 
     if (!is_array($audiences)) $errors[] = 'audiences must be an array.';
     else {
-        $audienceLimit = $usesV4Contract ? 4 : 3;
-        if ($usesV4Contract && count($audiences) < 1) $errors[] = 'audiences must contain at least 1 item.';
+        $audienceLimit = $usesV5Contract ? 5 : ($usesV4Contract ? 4 : 3);
+        if ($usesAudienceMapContract && count($audiences) < 1) $errors[] = 'audiences must contain at least 1 item.';
         if (count($audiences) > $audienceLimit) $errors[] = 'audiences may contain at most ' . $audienceLimit . ' items.';
         foreach ($audiences as $i => $item) {
             if (!isAssocArray($item)) { $errors[] = 'audiences[' . $i . '] must be an object.'; continue; }
             requireString($item, 'id', 80, $errors);
             requireString($item, 'title', 240, $errors);
-            requireString($item, 'situation', $usesV4Contract ? 10000 : 1600, $errors);
+            requireString($item, 'situation', $usesAudienceMapContract ? 10000 : 1600, $errors);
         }
     }
 }
@@ -241,26 +243,50 @@ elseif (!$usesModernContract) {
 }
 
 $patientPatterns = $payload['patientPatterns'] ?? null;
-if ($usesV4Contract && is_array($patientPatterns) && count($patientPatterns) < 1) $errors[] = 'patientPatterns must contain at least 1 item.';
+if ($usesAudienceMapContract && is_array($patientPatterns) && count($patientPatterns) < 1) $errors[] = 'patientPatterns must contain at least 1 item.';
 if (!is_array($patientPatterns)) $errors[] = 'patientPatterns must be an array.';
-else foreach ($patientPatterns as $i => $pattern) {
-    $patternLimit = $usesV4Contract ? 4 : ($usesV3Contract ? 3 : 10);
+else {
+    $seenV5SourceIds = [];
+    foreach ($patientPatterns as $i => $pattern) {
+    $patternLimit = $usesV5Contract ? 5 : ($usesV4Contract ? 4 : ($usesV3Contract ? 3 : 10));
     if (count($patientPatterns) > $patternLimit) { $errors[] = 'patientPatterns may contain at most ' . $patternLimit . ' items.'; break; }
     if (!isAssocArray($pattern)) { $errors[] = 'patientPatterns[' . $i . '] must be an object.'; continue; }
     if (count($pattern) > 40) { $errors[] = 'patientPatterns[' . $i . '] contains too many fields.'; continue; }
-    if ($usesV4Contract) {
+    if ($usesV5Contract) {
+        foreach (['audienceId', 'sourceArchetypeId', 'sourceArchetypeTitle', 'sourceArchetypeSummary', 'reviewDecision', 'therapyScope', 'audienceBasis', 'evidenceSources', 'clinicalContext', 'workingLabel', 'centralTension', 'helpSeekingThreshold', 'functionAndCost', 'observedAndPrivate', 'ambivalence', 'trustBridge', 'decisionSystem', 'languageSignals', 'healingDirectionAndFit', 'distinction'] as $requiredKey) {
+            if (!array_key_exists($requiredKey, $pattern)) $errors[] = 'patientPatterns[' . $i . '].' . $requiredKey . ' is required.';
+        }
+        $sourceId = is_string($pattern['sourceArchetypeId'] ?? null) ? trim($pattern['sourceArchetypeId']) : '';
+        $allowedSourceIds = ['young-achiever', 'working-class-dad', 'veteran-first-responder', 'professional-under-pressure', 'new'];
+        $allowedDecisions = ['', 'Retain as a useful starting archetype', 'Revise for therapy services', 'Combine with another archetype', 'Retire from the current strategy', 'Unsure; needs more evidence'];
+        $allowedScopes = ['', 'Relevant to both therapy and recovery services', 'Relevant primarily to therapy services', 'Relevant primarily to recovery services', 'Not relevant to either current service line', 'Unsure'];
+        if (!in_array($sourceId, $allowedSourceIds, true)) $errors[] = 'patientPatterns[' . $i . '].sourceArchetypeId is invalid.';
+        if ($sourceId !== 'new' && in_array($sourceId, $seenV5SourceIds, true)) $errors[] = 'patientPatterns contains the same original persona more than once.';
+        if ($sourceId !== 'new') $seenV5SourceIds[] = $sourceId;
+        $workingLabel = is_string($pattern['workingLabel'] ?? null) ? trim($pattern['workingLabel']) : '';
+        if ($workingLabel === '') $errors[] = 'patientPatterns[' . $i . '].workingLabel is required.';
+        $decision = is_string($pattern['reviewDecision'] ?? null) ? trim($pattern['reviewDecision']) : '';
+        $scope = is_string($pattern['therapyScope'] ?? null) ? trim($pattern['therapyScope']) : '';
+        $basis = is_string($pattern['audienceBasis'] ?? null) ? trim($pattern['audienceBasis']) : '';
+        if (!in_array($decision, $allowedDecisions, true)) $errors[] = 'patientPatterns[' . $i . '].reviewDecision is invalid.';
+        if (!in_array($scope, $allowedScopes, true)) $errors[] = 'patientPatterns[' . $i . '].therapyScope is invalid.';
+        if ($sourceId === 'new' && $basis === '') $errors[] = 'patientPatterns[' . $i . '].audienceBasis is required for a new persona.';
+        if ($sourceId !== 'new' && $decision === '') $errors[] = 'patientPatterns[' . $i . '].reviewDecision is required for an original persona.';
+        if ($sourceId !== 'new' && $scope === '') $errors[] = 'patientPatterns[' . $i . '].therapyScope is required for an original persona.';
+    } elseif ($usesV4Contract) {
         foreach (['audienceId', 'audienceBasis', 'evidenceSources', 'clinicalContext', 'workingLabel', 'audienceRole', 'stableContext', 'helpSeekingState', 'observedAndPrivate', 'functionAndDesiredChange', 'resistanceAndTrust', 'languageSignals', 'fitAndBoundary', 'distinction'] as $requiredKey) {
             if (!array_key_exists($requiredKey, $pattern)) $errors[] = 'patientPatterns[' . $i . '].' . $requiredKey . ' is required.';
         }
     }
     foreach ($pattern as $key => $value) {
         if (!is_string($key)) { $errors[] = 'patientPatterns[' . $i . '] keys must be strings.'; break; }
-        if (($usesV3Contract && $key === 'associatedConditions') || ($usesV4Contract && in_array($key, ['evidenceSources', 'clinicalContext'], true))) {
+        if (($usesV3Contract && $key === 'associatedConditions') || ($usesAudienceMapContract && in_array($key, ['evidenceSources', 'clinicalContext'], true))) {
             validateStringArray($value, 'patientPatterns[' . $i . '].' . $key, 30, 240, $errors);
             continue;
         }
         if (!is_string($value)) { $errors[] = 'patientPatterns[' . $i . '].' . $key . ' must be a string.'; break; }
         if (strlen($value) > 10000) { $errors[] = 'patientPatterns[' . $i . '].' . $key . ' is too long.'; break; }
+    }
     }
 }
 
@@ -275,7 +301,7 @@ else {
 }
 
 $sourceIntegrity = $payload['sourceIntegrity'] ?? null;
-if ($usesV4Contract) {
+if ($usesAudienceMapContract) {
     $sourceIntegrityValid = isAssocArray($sourceIntegrity)
         && ($sourceIntegrity['responseType'] ?? null) === 'clinical-audience-mapping-response'
         && ($sourceIntegrity['patientIdentifyingInformationRequested'] ?? null) === false

@@ -30,13 +30,20 @@ jobs:
           const keys = clinicianCore.patternQuestions.map(question => question.key);
           if (new Set(keys).size !== keys.length) throw new Error('Pattern question keys must be unique.');
           if (clinicianCore.patternQuestions.length !== 11) throw new Error('Expected 11 audience-pattern questions.');
-          if (varettoConfig.maxAudiencePatterns !== 4) throw new Error('Expected a four-pattern collection limit.');
+          if (varettoConfig.maxAudiencePatterns !== 5) throw new Error('Expected a five-worksheet collection limit.');
+          if (!varettoConfig.baselineStudy || varettoConfig.baselineStudy.archetypes.length !== 4) throw new Error('Expected four source personas from the original study.');
+          if (new Set(varettoConfig.baselineStudy.archetypes.map(item => item.id)).size !== 4) throw new Error('Source persona IDs must be unique.');
+          for (const persona of varettoConfig.baselineStudy.archetypes) {
+            for (const field of ['feelings', 'questions', 'influencers', 'influencerQuestions', 'barriers']) {
+              if (!Array.isArray(persona[field]) || persona[field].length < 2) throw new Error(`${persona.id}.${field} must preserve source-study context.`);
+            }
+          }
           for (const optionSet of ['audienceBasisOptions', 'evidenceSourceOptions', 'conditionOptions']) {
             const options = varettoConfig[optionSet];
             if (!Array.isArray(options) || options.length < 2) throw new Error(`${optionSet} is required.`);
             if (new Set(options.map(item => item.id)).size !== options.length) throw new Error(`${optionSet} IDs must be unique.`);
           }
-          if (!varettoConfig.questionnaireVersion.endsWith('-v4')) throw new Error('Expected the v4 questionnaire contract.');
+          if (!varettoConfig.questionnaireVersion.endsWith('-v5')) throw new Error('Expected the v5 questionnaire contract.');
           NODE
 
       - name: Validate JSON schema

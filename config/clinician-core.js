@@ -9,71 +9,70 @@ export const clinicianCore = {
   patternQuestions: [
     {
       number: 1,
-      key: "evidence",
-      type: "evidence",
-      label: "What is this audience pattern based on?",
-      help: "Separate repeated clinical experience from informed inference and an audience Varetto hopes to serve. This helps us weigh the response without treating every statement as equally established."
+      key: "foundation",
+      type: "foundation",
+      label: "How should this persona move forward, and what informs your judgment?",
+      help: "Treat the original persona as a hypothesis rather than a fixed character. Distinguish direct client language, recurring clinical observation, collateral information, professional inference, and a future-audience hypothesis."
     },
     {
       number: 2,
-      key: "audienceRole",
-      label: "Who is the website speaking to in this pattern?",
-      help: "Identify who would receive care, who recognizes the need, who searches, and who initiates contact. These may be different people—for example, a prospective patient, partner, parent, clinician, or other referral source."
+      key: "centralTension",
+      label: "What is this person trying to protect, preserve, or prove—and what is becoming harder to sustain?",
+      help: "Look for the organizing tension beneath a demographic or diagnosis: competence, belonging, autonomy, identity, safety, family stability, reputation, relief, or another valued role. Describe a recurring pattern, not a universal trait."
     },
     {
       number: 3,
-      key: "stableContext",
-      label: "What relatively stable context shapes how this audience approaches help?",
-      help: "Consider role obligations, values, identity, relationships, resources, culture, and pressures. Avoid turning a diagnosis, occupation, age, or current symptom state into a fixed personality trait."
+      key: "helpSeekingThreshold",
+      label: "What has shifted enough that help becomes thinkable now?",
+      help: "Describe the threshold moment: an accumulating cost, consequence, relationship rupture, transition, recurrence, exhaustion, loss of control, or new readiness. Separate this state-dependent opening from the person’s enduring identity."
     },
     {
       number: 4,
-      key: "helpSeekingState",
-      label: "What state, event, or change brings this person to the website now?",
-      help: "Describe the presenting moment: an accumulation of strain, consequence, transition, recurrence, conversation, or shift in readiness. This is the help-seeking state—not necessarily the person's enduring character."
+      key: "functionAndCost",
+      label: "What does the current coping pattern accomplish in the short term, and what is it costing over time?",
+      help: "Use a functional lens. The pattern may regulate affect, reduce arousal, preserve performance, create distance, maintain belonging, or avoid pain. Name only functions supported by repeated observation or reported experience."
     },
     {
       number: 5,
       key: "observedAndPrivate",
-      label: "What is observable, and what may be experienced privately?",
-      help: "Distinguish behavior or functioning you have repeatedly observed from thoughts, emotions, or meanings clients have reported. Label a clinical inference as an inference rather than placing it in the person's voice."
+      label: "What do others see, and what might this person experience or name privately?",
+      help: "Distinguish observable behavior and functioning from thoughts, emotions, and meanings clients have directly reported. Label a clinical inference as an inference rather than placing it in the person’s voice."
     },
     {
       number: 6,
-      key: "functionAndDesiredChange",
-      label: "What function does the current pattern serve, and what does this person want instead?",
-      help: "Describe what substance use or another coping behavior may regulate, avoid, preserve, or provide temporarily. Then describe the everyday life change the person wants—not only the symptom or behavior they want to stop."
+      key: "ambivalence",
+      label: "What two truths may this person be holding at the same time?",
+      help: "Capture ambivalence without reducing it to denial or resistance. For example: wanting relief while fearing exposure, wanting connection while protecting autonomy, or recognizing harm while relying on the behavior to function."
     },
     {
       number: 7,
-      key: "resistanceAndTrust",
-      label: "What makes help feel risky, and what could establish enough trust to continue?",
-      help: "Consider autonomy, stigma, shame, prior treatment experiences, confidentiality, cultural fit, practical access, safety, readiness, and fear of consequences."
+      key: "trustBridge",
+      label: "What must Varetto understand or communicate before honest engagement feels safe enough?",
+      help: "Consider autonomy, shame, stigma, confidentiality, cultural humility, prior treatment rupture, practical access, relational safety, and fear of consequences. The goal is not to remove all discomfort; it is to identify a credible bridge into connection."
     },
     {
       number: 8,
-      key: "languageSignals",
-      label: "What language belongs specifically to this audience?",
-      help: "Include de-identified phrases you have heard, likely search language, what would communicate recognition, and words or framing that could feel inaccurate, stigmatizing, or alienating."
+      key: "decisionSystem",
+      label: "Who recognizes the need, searches, decides, or initiates contact—and what does each person need?",
+      help: "The care recipient, searcher, influencer, and decision-maker may be different people. Name the pathway without assuming a partner, parent, employer, clinician, or peer has the same concerns as the prospective client."
     },
     {
       number: 9,
-      key: "clinicalContext",
-      type: "conditions",
-      label: "Which clinical concerns may modify this presentation?",
-      help: "Treat these as possible dimensions or co-occurring contexts—not defining traits and not evidence that everyone in this audience has the same diagnosis."
+      key: "languageSignals",
+      label: "What words would help this person feel accurately recognized—and what language would create distance?",
+      help: "Include de-identified phrases heard across clients, likely search language, questions they may ask, and wording that could feel inaccurate, stigmatizing, clinical too early, or unlike their own voice."
     },
     {
       number: 10,
-      key: "fitAndBoundary",
-      label: "Why might Varetto fit, and where is the clinical or practical boundary?",
-      help: "Connect the pattern to actual services, therapeutic strengths, level of care, scope, access, and referral needs. Do not infer fit from diagnosis alone."
+      key: "healingDirectionAndFit",
+      label: "What would meaningful movement toward connection or healing look like—and how could Varetto credibly support it?",
+      help: "Describe desired change in ordinary life, relationships, agency, or functioning—not a promised outcome. Connect that direction to Varetto’s actual therapeutic stance and services, and name clinical, practical, level-of-care, or referral boundaries."
     },
     {
       number: 11,
       key: "distinction",
       label: "What should we not carry over from another audience pattern?",
-      help: "Name the motivation, decision process, language, trust requirement, or service pathway that makes this audience meaningfully different. If only diagnosis, occupation, age, or recovery stage differs, it may be one archetype in another context."
+      help: "Protect this persona from trait bleed. Name the motivation, protective strategy, decision process, language, trust requirement, or healing opportunity that is specific here. If only diagnosis, occupation, age, or recovery stage differs, it may be one archetype in another context."
     }
   ]
 };
