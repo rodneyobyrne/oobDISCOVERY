@@ -12,11 +12,11 @@ $required = [
     "mode'] ?? '') === 'session'",
     "'action' => 'login'",
     "'action' => 'logout'",
-    "'accountType' => (bool)$principal['system_admin'] ? 'Full Admin' : 'Client'",
-    "discovery_projects",
-    "discovery_user_clients",
-    "Access-Control-Allow-Credentials",
-    "https://discovery.oobcreative.com",
+    "'accountType' => (bool)\$principal['system_admin'] ? 'Full Admin' : 'Client'",
+    'discovery_projects',
+    'discovery_user_clients',
+    'Access-Control-Allow-Credentials',
+    'https://discovery.oobcreative.com',
 ];
 
 foreach ($required as $needle) {
