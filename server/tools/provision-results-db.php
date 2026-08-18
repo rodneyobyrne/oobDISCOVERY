@@ -92,7 +92,7 @@ try {
         $databaseUser = $prefix . $suffix;
 
         runUapi($uapi, 'Mysql', 'create_user', [
-            'name' => $suffix,
+            'name' => $databaseUser,
             'password' => $databasePassword,
         ]);
 
