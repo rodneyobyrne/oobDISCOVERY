@@ -60,3 +60,4 @@ jobs:
           find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           php server/tests/auth-contract.php
           php server/tests/runtime-config-contract.php
+          php server/tests/home-session-contract.php
