@@ -5,6 +5,7 @@ $home = rtrim((string)(getenv('HOME') ?: '/home1/reaqfvmy'), '/');
 $localLibrary = dirname(__DIR__, 4) . '/lib';
 $library = is_dir($localLibrary) ? $localLibrary : $home . '/oob-discovery-lib';
 require_once $library . '/discovery-auth.php';
+require_once $library . '/discovery-account-mail.php';
 require_once $library . '/discovery-ui.php';
 oobApplySecurityHeaders();
 if (!oobIsSecureRequest()) oobRenderAccountPage('Secure connection required', 'Password reset', 'Open this page using HTTPS.', '', 400);
@@ -40,9 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!$recent->fetchColumn()) {
                         $token = oobCreateAccountToken($pdo, (int)$user['id'], $purpose, $purpose === 'verify' ? 1440 : 60);
                         try {
-                            $purpose === 'verify'
-                                ? oobSendVerificationEmail($accessConfig, $user, $token)
-                                : oobSendPasswordResetEmail($accessConfig, $user, $token);
+                            oobSendAccountLinkEmail($accessConfig, $user, $token, $purpose);
                         } catch (Throwable $mailError) {
                             // Do not leave a failed-send token looking like a recent successful request.
                             // Mark it used so the person can retry immediately without waiting for the throttle window.
