@@ -37,9 +37,15 @@ try {
         $access->execute([':user_id' => $userId, ':client_id' => 'deployment-check', ':role' => 'viewer']);
         $accountToken = $pdo->prepare("INSERT INTO discovery_account_tokens (user_id, purpose, token_hash, expires_at) VALUES (:user_id, 'verify', :token_hash, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY))");
         $accountToken->execute([':user_id' => $userId, ':token_hash' => hash('sha256', 'account-' . $probe)]);
+        $submission = $pdo->prepare("INSERT INTO discovery_submissions (submission_id, discovery_type, client_id, owner_user_id, respondent_name, respondent_email, questionnaire_version, payload_json) VALUES (:submission_id, 'clinician', 'deployment-check', :owner_user_id, '', NULL, 'deployment-check-v5', '{}')");
+        $submission->execute([':submission_id' => 'account-' . $probe, ':owner_user_id' => $userId]);
+
         $read = $pdo->prepare('SELECT COUNT(*) FROM discovery_user_clients WHERE user_id = :user_id');
         $read->execute([':user_id' => $userId]);
         if ((int)$read->fetchColumn() !== 1) throw new RuntimeException('Account access probe was not readable.');
+        $owned = $pdo->prepare('SELECT COUNT(*) FROM discovery_submissions WHERE owner_user_id = :user_id');
+        $owned->execute([':user_id' => $userId]);
+        if ((int)$owned->fetchColumn() !== 1) throw new RuntimeException('Submission ownership probe was not readable.');
     } finally {
         if ($pdo->inTransaction()) $pdo->rollBack();
     }
@@ -51,8 +57,8 @@ try {
         throw new RuntimeException('PHPMailer is required for account email.');
     }
     fwrite(STDOUT, oobAccountAuthEnabled($accessConfig)
-        ? "Account storage and SMTP prerequisites OK\n"
-        : "Account storage OK; invited accounts are disabled\n");
+        ? "Account storage, submission ownership, and SMTP prerequisites OK\n"
+        : "Account storage and submission ownership OK; invited accounts are disabled\n");
     exit(0);
 } catch (PDOException $error) {
     $mysqlCode = isset($error->errorInfo[1]) ? (int)$error->errorInfo[1] : 0;
