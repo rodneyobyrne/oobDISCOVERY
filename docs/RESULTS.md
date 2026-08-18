@@ -21,27 +21,30 @@ It does **not** present a single response as a finished persona, diagnosis, appr
 
 See [`RESPONSE-EXPERIENCE.md`](RESPONSE-EXPERIENCE.md) for the governing functional spec.
 
-## Internal/client results workspace
+## Internal/client response index
 
-The broader results workspace remains available at:
+The protected response index remains available at:
 
 ```text
 https://api.oobcreative.com/discovery/results/
 ```
 
-Its purpose is evidence management and later synthesis. It provides:
+At this phase its job is deliberately narrow:
 
-- a private list of client-authorized responses;
-- source response detail;
-- exact source JSON downloads;
-- LLM-ready JSON exports with provenance and analysis guardrails;
-- invitation-based, client-scoped accounts;
-- access management for system administrators;
-- secure sessions, CSRF protection, rate limiting, and no-store/no-index response headers.
+- show the client-authorized response list;
+- confirm who responded and when;
+- open each submission in the source-first response review;
+- provide account and access management for authorized administrators.
+
+The index no longer tries to present a single questionnaire response as if synthesis has already happened.
 
 The browser never receives a database credential or a public list API. PHP reads the private database configuration on the server and renders only after authentication.
 
-The deeper workspace should not be treated as the respondent's immediate post-submit experience. Early respondent review remains source-first; broader cross-response analysis comes later.
+## Later synthesis capability
+
+The system can later support LLM-ready exports, cross-response comparison, clustering, persona development, and website-content synthesis. Those are downstream capabilities, not part of the immediate respondent review.
+
+When an LLM-ready export is introduced or reintroduced, it must wrap the untouched source payload with provenance and analysis guardrails rather than alter the source record.
 
 ## Transitional shared access
 
@@ -62,17 +65,7 @@ See [`AUTH.md`](AUTH.md) for the account flow, Google Workspace SMTP setup, depl
 
 The questionnaire payload stored at submission time is the primary record.
 
-`Source JSON` is that exact stored payload.
-
-`LLM-ready JSON` wraps the source payload without changing it and may add:
-
-- `export_schema`;
-- intended analysis purpose;
-- provenance;
-- analysis guardrails;
-- the untouched source payload.
-
-Any later LLM analysis, research synthesis, persona development, or content recommendation must remain separate from the source response and be identifiable as interpretation.
+`Source JSON` is that exact stored payload. Any later LLM analysis, research synthesis, persona development, or content recommendation must remain separate from the source response and be identifiable as interpretation.
 
 ## Privacy boundary
 
