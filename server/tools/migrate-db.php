@@ -27,12 +27,15 @@ CREATE TABLE IF NOT EXISTS discovery_submissions (
   submission_id VARCHAR(80) NOT NULL UNIQUE,
   discovery_type VARCHAR(40) NOT NULL,
   client_id VARCHAR(80) NOT NULL,
+  owner_user_id BIGINT UNSIGNED NULL,
   respondent_name VARCHAR(160) NOT NULL,
   respondent_email VARCHAR(254) NULL,
   questionnaire_version VARCHAR(80) NOT NULL,
   payload_json LONGTEXT NOT NULL,
   status VARCHAR(30) NOT NULL DEFAULT 'received',
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_discovery_submissions_owner (owner_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 SQL);
 
@@ -53,11 +56,28 @@ CREATE TABLE IF NOT EXISTS discovery_users (
 SQL);
 
     $columnCheck = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = :schema_name AND TABLE_NAME = :table_name AND COLUMN_NAME = :column_name');
-    $columnCheck->execute([':schema_name' => (string)($db['name'] ?? ''), ':table_name' => 'discovery_users', ':column_name' => 'password_hash']);
-    if ((int)$columnCheck->fetchColumn() === 0) {
+    $hasColumn = static function (PDOStatement $columnCheck, string $schema, string $table, string $column): bool {
+        $columnCheck->execute([':schema_name' => $schema, ':table_name' => $table, ':column_name' => $column]);
+        return (int)$columnCheck->fetchColumn() > 0;
+    };
+    $schemaName = (string)($db['name'] ?? '');
+
+    if (!$hasColumn($columnCheck, $schemaName, 'discovery_users', 'password_hash')) {
         $pdo->exec('ALTER TABLE discovery_users ADD COLUMN password_hash VARCHAR(255) NULL AFTER username');
     }
     $pdo->exec('ALTER TABLE discovery_users MODIFY auth_user_id CHAR(36) NULL');
+
+    if (!$hasColumn($columnCheck, $schemaName, 'discovery_submissions', 'owner_user_id')) {
+        $pdo->exec('ALTER TABLE discovery_submissions ADD COLUMN owner_user_id BIGINT UNSIGNED NULL AFTER client_id');
+    }
+    if (!$hasColumn($columnCheck, $schemaName, 'discovery_submissions', 'updated_at')) {
+        $pdo->exec('ALTER TABLE discovery_submissions ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at');
+    }
+    $indexCheck = $pdo->prepare('SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = :schema_name AND TABLE_NAME = :table_name AND INDEX_NAME = :index_name');
+    $indexCheck->execute([':schema_name' => $schemaName, ':table_name' => 'discovery_submissions', ':index_name' => 'idx_discovery_submissions_owner']);
+    if ((int)$indexCheck->fetchColumn() === 0) {
+        $pdo->exec('CREATE INDEX idx_discovery_submissions_owner ON discovery_submissions (owner_user_id)');
+    }
 
     $pdo->exec(<<<'SQL'
 CREATE TABLE IF NOT EXISTS discovery_user_clients (
@@ -106,7 +126,20 @@ CREATE TABLE IF NOT EXISTS discovery_account_tokens (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 SQL);
 
-    fwrite(STDOUT, "Database and account migrations OK\n");
+    // Existing submissions are assigned only when the stored respondent email
+    // exactly matches a unique Discovery account email. Unmatched historical
+    // submissions remain Full-Admin-only rather than being guessed at.
+    $pdo->exec(<<<'SQL'
+UPDATE discovery_submissions s
+JOIN discovery_users u ON u.email = LOWER(s.respondent_email)
+SET s.owner_user_id = u.id
+WHERE s.owner_user_id IS NULL
+  AND s.respondent_email IS NOT NULL
+  AND s.respondent_email <> ''
+  AND s.client_id <> 'deployment-check'
+SQL);
+
+    fwrite(STDOUT, "Database, account, and submission ownership migrations OK\n");
     exit(0);
 } catch (PDOException $e) {
     $mysqlCode = isset($e->errorInfo[1]) ? (int)$e->errorInfo[1] : 0;
