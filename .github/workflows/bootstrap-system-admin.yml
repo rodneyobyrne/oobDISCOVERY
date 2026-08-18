@@ -1,0 +1,50 @@
+name: Bootstrap Discovery System Admin
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "server/tools/bootstrap-system-admin.php"
+      - ".github/workflows/bootstrap-system-admin.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bootstrap-discovery-system-admin
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Prepare SSH
+        env:
+          BLUEHOST_SSH_KEY: ${{ secrets.BLUEHOST_SSH_KEY }}
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+        run: |
+          test -n "$BLUEHOST_SSH_KEY"
+          test -n "$BLUEHOST_SSH_HOST"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$BLUEHOST_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$BLUEHOST_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Create first system administrator account
+        env:
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+        run: |
+          test -n "$BLUEHOST_SSH_USER"
+          scp server/tools/bootstrap-system-admin.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-bootstrap-system-admin.php"
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
+            php /home1/reaqfvmy/oob-discovery-bootstrap-system-admin.php
+            code=$?
+            rm -f /home1/reaqfvmy/oob-discovery-bootstrap-system-admin.php
+            exit $code
+          '
