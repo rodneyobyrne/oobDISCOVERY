@@ -253,12 +253,12 @@ else {
     if (!isAssocArray($pattern)) { $errors[] = 'patientPatterns[' . $i . '] must be an object.'; continue; }
     if (count($pattern) > 40) { $errors[] = 'patientPatterns[' . $i . '] contains too many fields.'; continue; }
     if ($usesV5Contract) {
-        foreach (['audienceId', 'sourceArchetypeId', 'sourceArchetypeTitle', 'sourceArchetypeSummary', 'reviewDecision', 'therapyScope', 'audienceBasis', 'evidenceSources', 'clinicalContext', 'workingLabel', 'centralTension', 'helpSeekingThreshold', 'functionAndCost', 'observedAndPrivate', 'ambivalence', 'trustBridge', 'decisionSystem', 'languageSignals', 'healingDirectionAndFit', 'distinction'] as $requiredKey) {
+        foreach (['audienceId', 'sourceArchetypeId', 'sourceArchetypeTitle', 'sourceArchetypeSummary', 'reviewDecision', 'therapyScope', 'audienceBasis', 'evidenceSources', 'clinicalContext', 'profileLifeContext', 'profileLifeContextExcluded', 'profileInternalExperience', 'profileInternalExperienceExcluded', 'profileQuestions', 'profileQuestionsExcluded', 'profileInfluencers', 'profileInfluencersExcluded', 'profileInfluencerConcerns', 'profileInfluencerConcernsExcluded', 'profileBarriers', 'profileBarriersExcluded', 'workingLabel', 'centralTension', 'helpSeekingThreshold', 'functionAndCost', 'observedAndPrivate', 'ambivalence', 'trustBridge', 'decisionSystem', 'languageSignals', 'healingDirectionAndFit', 'distinction'] as $requiredKey) {
             if (!array_key_exists($requiredKey, $pattern)) $errors[] = 'patientPatterns[' . $i . '].' . $requiredKey . ' is required.';
         }
         $sourceId = is_string($pattern['sourceArchetypeId'] ?? null) ? trim($pattern['sourceArchetypeId']) : '';
         $allowedSourceIds = ['young-achiever', 'working-class-dad', 'veteran-first-responder', 'professional-under-pressure', 'new'];
-        $allowedDecisions = ['', 'Retain as a useful starting archetype', 'Revise for therapy services', 'Combine with another archetype', 'Retire from the current strategy', 'Unsure; needs more evidence'];
+        $allowedDecisions = ['', 'Yes—review and refine', 'Needs significant revision', 'This persona is no longer relevant'];
         $allowedScopes = ['', 'Relevant to both therapy and recovery services', 'Relevant primarily to therapy services', 'Relevant primarily to recovery services', 'Not relevant to either current service line', 'Unsure'];
         if (!in_array($sourceId, $allowedSourceIds, true)) $errors[] = 'patientPatterns[' . $i . '].sourceArchetypeId is invalid.';
         if ($sourceId !== 'new' && in_array($sourceId, $seenV5SourceIds, true)) $errors[] = 'patientPatterns contains the same original persona more than once.';

@@ -34,6 +34,8 @@ jobs:
           if (!varettoConfig.baselineStudy || varettoConfig.baselineStudy.archetypes.length !== 4) throw new Error('Expected four source personas from the original study.');
           if (new Set(varettoConfig.baselineStudy.archetypes.map(item => item.id)).size !== 4) throw new Error('Source persona IDs must be unique.');
           for (const persona of varettoConfig.baselineStudy.archetypes) {
+            if (!persona.fullStudyHtml || persona.fullStudyHtml.length < 1500) throw new Error(`${persona.id} must include the complete original study.`);
+            if (!persona.profile || !Array.isArray(persona.profile.lifeContext)) throw new Error(`${persona.id} must include editable prefilled profile data.`);
             for (const field of ['feelings', 'questions', 'influencers', 'influencerQuestions', 'barriers']) {
               if (!Array.isArray(persona[field]) || persona[field].length < 2) throw new Error(`${persona.id}.${field} must preserve source-study context.`);
             }

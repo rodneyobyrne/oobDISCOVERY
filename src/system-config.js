@@ -1,7 +1,7 @@
 export const systemConfig = {
   system: "oobDISCOVERY",
   discoveryType: "clinician",
-  version: "0.5.0",
+  version: "0.6.0",
   storageKey: "oobdiscovery-clinical-audience-map-v5",
   submissionEndpoint: "https://api.oobcreative.com/discovery/submit/",
   allowedProductionOrigin: "https://discovery.oobcreative.com",

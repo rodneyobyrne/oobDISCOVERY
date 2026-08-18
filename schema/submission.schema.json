@@ -80,7 +80,7 @@
       "maxItems": 5,
       "items": {
         "type": "object",
-        "required": ["audienceId", "sourceArchetypeId", "sourceArchetypeTitle", "sourceArchetypeSummary", "reviewDecision", "therapyScope", "audienceBasis", "evidenceSources", "clinicalContext", "workingLabel", "centralTension", "helpSeekingThreshold", "functionAndCost", "observedAndPrivate", "ambivalence", "trustBridge", "decisionSystem", "languageSignals", "healingDirectionAndFit", "distinction"],
+        "required": ["audienceId", "sourceArchetypeId", "sourceArchetypeTitle", "sourceArchetypeSummary", "reviewDecision", "therapyScope", "audienceBasis", "evidenceSources", "clinicalContext", "profileLifeContext", "profileLifeContextExcluded", "profileInternalExperience", "profileInternalExperienceExcluded", "profileQuestions", "profileQuestionsExcluded", "profileInfluencers", "profileInfluencersExcluded", "profileInfluencerConcerns", "profileInfluencerConcernsExcluded", "profileBarriers", "profileBarriersExcluded", "workingLabel", "centralTension", "helpSeekingThreshold", "functionAndCost", "observedAndPrivate", "ambivalence", "trustBridge", "decisionSystem", "languageSignals", "healingDirectionAndFit", "distinction"],
         "properties": {
           "audienceId": { "type": "string", "maxLength": 80 },
           "sourceArchetypeId": { "type": "string", "maxLength": 80 },
@@ -101,6 +101,18 @@
             "uniqueItems": true,
             "items": { "type": "string", "maxLength": 240 }
           },
+          "profileLifeContext": { "type": "string", "maxLength": 10000 },
+          "profileLifeContextExcluded": { "type": "string", "maxLength": 10000 },
+          "profileInternalExperience": { "type": "string", "maxLength": 10000 },
+          "profileInternalExperienceExcluded": { "type": "string", "maxLength": 10000 },
+          "profileQuestions": { "type": "string", "maxLength": 10000 },
+          "profileQuestionsExcluded": { "type": "string", "maxLength": 10000 },
+          "profileInfluencers": { "type": "string", "maxLength": 10000 },
+          "profileInfluencersExcluded": { "type": "string", "maxLength": 10000 },
+          "profileInfluencerConcerns": { "type": "string", "maxLength": 10000 },
+          "profileInfluencerConcernsExcluded": { "type": "string", "maxLength": 10000 },
+          "profileBarriers": { "type": "string", "maxLength": 10000 },
+          "profileBarriersExcluded": { "type": "string", "maxLength": 10000 },
           "workingLabel": { "type": "string", "maxLength": 240 },
           "centralTension": { "type": "string", "maxLength": 10000 },
           "helpSeekingThreshold": { "type": "string", "maxLength": 10000 },

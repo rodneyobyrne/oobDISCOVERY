@@ -1,6 +1,6 @@
-import { systemConfig } from "./system-config.js?v=0.5.0";
-import { clinicianCore } from "../config/clinician-core.js?v=0.5.0";
-import { varettoConfig } from "../config/varetto.js?v=0.5.0";
+import { systemConfig } from "./system-config.js?v=0.6.0";
+import { clinicianCore } from "../config/clinician-core.js?v=0.6.0";
+import { varettoConfig } from "../config/varetto.js?v=0.6.0";
 
 const config = varettoConfig;
 const app = document.querySelector("#app");
@@ -61,6 +61,60 @@ function sourceList(title, items = []) {
   return `<div><strong>${esc(title)}</strong><ul>${items.map(item => `<li>${esc(item)}</li>`).join("")}</ul></div>`;
 }
 
+const profileSections = [
+  { key: "lifeContext", field: "profileLifeContext", title: "Life stage and context", addLabel: "Add another characteristic" },
+  { key: "internalExperience", field: "profileInternalExperience", title: "Internal experience and organizing tensions", addLabel: "Add another emotional or psychological pattern" },
+  { key: "questions", field: "profileQuestions", title: "Questions and language already associated with this persona", addLabel: "Add another question or phrase" },
+  { key: "influencers", field: "profileInfluencers", title: "People who may influence the decision", addLabel: "Add another influence" },
+  { key: "influencerConcerns", field: "profileInfluencerConcerns", title: "Influencer feelings and questions", addLabel: "Add another influencer concern" },
+  { key: "barriers", field: "profileBarriers", title: "Likely barriers to beginning care", addLabel: "Add another barrier" }
+];
+
+function splitProfileItems(value = "") {
+  return String(value).split("\n").map(item => item.trim()).filter(Boolean);
+}
+
+function normalizeReviewDecision(value = "") {
+  const migrations = {
+    "Retain as a useful starting archetype": "Yes—review and refine",
+    "Revise for therapy services": "Needs significant revision",
+    "Combine with another archetype": "Needs significant revision",
+    "Retire from the current strategy": "This persona is no longer relevant",
+    "Unsure; needs more evidence": "Needs significant revision"
+  };
+  return migrations[value] || value;
+}
+
+function profileRows(pattern, sourcePersona, section) {
+  const excludedField = `${section.field}Excluded`;
+  const hasSavedState = Object.hasOwn(pattern, section.field) || Object.hasOwn(pattern, excludedField);
+  const selected = hasSavedState ? splitProfileItems(pattern[section.field]) : (sourcePersona?.profile?.[section.key] || []);
+  const excluded = hasSavedState ? splitProfileItems(pattern[excludedField]) : [];
+  return [
+    ...selected.map(text => ({ text, selected: true })),
+    ...excluded.map(text => ({ text, selected: false }))
+  ];
+}
+
+function renderProfileRow(sectionKey, item) {
+  return `<div class="profile-item" data-profile-item>
+    <label class="profile-check" title="Include this item in the revised persona">
+      <input type="checkbox" data-profile-selected ${item.selected ? "checked" : ""}>
+      <span class="sr-only">Include this item</span>
+    </label>
+    <textarea rows="2" maxlength="1600" data-profile-value aria-label="Persona characteristic">${esc(item.text)}</textarea>
+  </div>`;
+}
+
+function renderProfileSection(patternId, pattern, sourcePersona, section) {
+  const rows = profileRows(pattern, sourcePersona, section);
+  return `<section class="profile-section" data-profile-section="${esc(section.key)}" data-profile-field="${esc(section.field)}">
+    <h4>${esc(section.title)}</h4>
+    <div class="profile-items">${rows.map(item => renderProfileRow(section.key, item)).join("")}</div>
+    <button type="button" class="button secondary small add-profile-item" data-add-profile-item="${esc(section.key)}" data-pattern-id="${esc(patternId)}">+ ${esc(section.addLabel)}</button>
+  </section>`;
+}
+
 function nextPatternId() {
   patternSequence += 1;
   return `audience-pattern-${patternSequence}`;
@@ -74,7 +128,15 @@ function renderStartingPersona(archetype, index) {
     </div>
     <p>${esc(archetype.summary)}</p>
     <p class="persona-signals"><strong>Original signals:</strong> ${esc(archetype.originalSignals)}</p>
-    <button type="button" class="button secondary" data-add-persona="${esc(archetype.id)}">Edit this persona</button>
+    <button type="button" class="button secondary persona-full-button" data-view-persona="${esc(archetype.id)}">View full original persona</button>
+    <fieldset class="persona-decision">
+      <legend>Does this original persona remain a useful starting point for Varetto’s therapy services?</legend>
+      <div class="persona-decision-grid">${config.baselineStudy.decisionOptions.map(option => `
+        <button type="button" class="persona-decision-button" data-persona-id="${esc(archetype.id)}" data-persona-decision="${esc(option.id)}">
+          <span aria-hidden="true">${esc(option.icon)}</span><span>${esc(option.label)}</span>
+        </button>`).join("")}</div>
+      <p class="persona-choice-status" data-persona-status="${esc(archetype.id)}" aria-live="polite"></p>
+    </fieldset>
   </article>`;
 }
 
@@ -87,8 +149,7 @@ function renderPatternQuestion(patternId, question, index, pattern) {
       <legend><span class="question-number question-number-wide">${esc(questionNumber)}</span>${esc(usesOriginalPersona ? question.label : "What is this new audience based on?")}</legend>
       <p class="help">${esc(question.help)}</p>
       ${usesOriginalPersona ? `
-        <p class="subquestion">Direction for the original persona</p>
-        ${radioList(`pattern.${patternId}.decision`, config.baselineStudy.decisionOptions, "choice-list compact")}
+        <div class="decision-summary"><strong>Your starting direction:</strong> ${esc(pattern.reviewDecision || "Review and refine")} <button type="button" class="text-button" data-focus-persona="${esc(pattern.sourceArchetypeId)}">Change this choice</button></div>
         <p class="subquestion">Current service relevance</p>
         ${radioList(`pattern.${patternId}.scope`, config.baselineStudy.scopeOptions, "choice-list compact")}
       ` : `
@@ -116,11 +177,12 @@ function renderPatternCard(patternId, index) {
   const usesOriginalPersona = pattern.sourceArchetypeId !== "new";
   const sourceTitle = pattern.sourceArchetypeTitle || "New therapy audience";
   const sourcePersona = config.baselineStudy.archetypes.find(archetype => archetype.id === pattern.sourceArchetypeId);
-  const heading = usesOriginalPersona ? `Edit ${sourceTitle}` : "Create a new therapy audience";
+  const heading = usesOriginalPersona ? `Review and refine ${sourceTitle}` : "Create a new therapy audience";
   const labelHelp = usesOriginalPersona
     ? "Keep the original title or rename it around the central tension if that would reduce demographic, occupational, or diagnostic stereotyping."
     : "Name the central tension or help-seeking position—not a fictional person, diagnosis, occupation, or demographic stereotype.";
   return `<article class="pattern-card" data-audience-id="${esc(patternId)}" data-source-archetype-id="${esc(pattern.sourceArchetypeId || "new")}" data-source-archetype-title="${esc(sourceTitle)}" data-source-archetype-summary="${esc(pattern.sourceArchetypeSummary || "")}">
+    <input type="hidden" value="${esc(pattern.reviewDecision || "")}" data-review-decision>
     <div class="pattern-heading">
       <div>
         <p class="eyebrow">Persona worksheet ${index + 1}</p>
@@ -129,18 +191,15 @@ function renderPatternCard(patternId, index) {
       <button type="button" class="text-button remove-pattern" data-remove-pattern="${esc(patternId)}">Remove this worksheet</button>
     </div>
     ${usesOriginalPersona ? `<div class="source-persona"><strong>Starting hypothesis from the original study</strong><p>${esc(pattern.sourceArchetypeSummary || "")}</p>
-      <details class="source-persona-details">
-        <summary>Review the original persona data</summary>
-        <p class="help">This source material was developed for recovery housing before therapy services were added. Confirm, revise, or reject it in the questions below; do not assume its feelings, influencers, barriers, or search language apply unchanged.</p>
-        <div class="source-persona-grid">
-          ${sourceList("Feelings proposed in the study", sourcePersona?.feelings)}
-          ${sourceList("Questions and search language", sourcePersona?.questions)}
-          ${sourceList("Potential influencers", sourcePersona?.influencers)}
-          ${sourceList("Influencer concerns and questions", sourcePersona?.influencerQuestions)}
-          ${sourceList("Barriers proposed in the study", sourcePersona?.barriers)}
-        </div>
-      </details>
-    </div>` : ""}
+      <button type="button" class="button secondary small" data-view-persona="${esc(pattern.sourceArchetypeId)}">View full original persona</button>
+    </div>
+    <section class="profile-review" data-question="${esc(patternId)}-profile-review">
+      <div class="profile-review-intro">
+        <h4>Review and refine this persona</h4>
+        <p>We have prefilled this profile using the original study. Keep what remains accurate, deselect what does not fit, edit the wording, and add the clinical nuance needed for therapy services. The original study remains unchanged.</p>
+      </div>
+      ${profileSections.map(section => renderProfileSection(patternId, pattern, sourcePersona, section)).join("")}
+    </section>` : ""}
     <div class="field" data-question="${esc(patternId)}-working-label">
       <label for="${esc(patternId)}-workingLabel"><span class="question-number question-number-wide">P${index + 1}.0</span>${usesOriginalPersona ? "Keep or revise the working title." : "Give this persona a short, neutral working title."}</label>
       <p class="help">${esc(labelHelp)} Example: “Protecting competence while privately questioning control.”</p>
@@ -260,6 +319,15 @@ function render() {
         <button type="submit" id="submit-button" class="button" ${!systemConfig.submissionEndpoint ? "disabled" : ""}>Submit response</button>
       </div>
     </form>
+    <dialog id="persona-study-dialog" class="dialog persona-study-dialog" aria-labelledby="persona-study-title">
+      <div class="persona-study-header">
+        <div><p class="eyebrow">Original study · Read only</p><h2 id="persona-study-title">Full original persona</h2></div>
+        <button type="button" class="button secondary small" data-close-persona-study>Close</button>
+      </div>
+      <p class="persona-study-notice">This is the complete source persona supplied for review. It has not been shortened or rewritten in this view.</p>
+      <div id="persona-study-content" class="persona-study-content"></div>
+      <div class="persona-study-footer"><button type="button" class="button" data-close-persona-study>Return to questionnaire</button></div>
+    </dialog>
   `;
 
   syncAudiencePanels();
@@ -284,12 +352,22 @@ function collectCurrentPatterns() {
     card.querySelectorAll("[data-pattern-key]").forEach(field => {
       result[field.dataset.patternKey] = field.value.trim();
     });
+    result.reviewDecision = card.querySelector("[data-review-decision]")?.value.trim() || "";
+    profileSections.forEach(section => {
+      const selected = [];
+      const excluded = [];
+      card.querySelectorAll(`[data-profile-section="${CSS.escape(section.key)}"] [data-profile-item]`).forEach(row => {
+        const value = row.querySelector("[data-profile-value]")?.value.trim() || "";
+        if (!value) return;
+        if (row.querySelector("[data-profile-selected]")?.checked) selected.push(value);
+        else excluded.push(value);
+      });
+      result[section.field] = selected.join("\n");
+      result[`${section.field}Excluded`] = excluded.join("\n");
+    });
     const basis = card.querySelector(`input[name="pattern.${CSS.escape(card.dataset.audienceId)}.basis"]:checked`);
     const basisOption = config.audienceBasisOptions.find(item => item.id === basis?.value);
     result.audienceBasis = basisOption?.label || "";
-    const decision = card.querySelector(`input[name="pattern.${CSS.escape(card.dataset.audienceId)}.decision"]:checked`);
-    const decisionOption = config.baselineStudy.decisionOptions.find(item => item.id === decision?.value);
-    result.reviewDecision = decisionOption?.label || "";
     const scope = card.querySelector(`input[name="pattern.${CSS.escape(card.dataset.audienceId)}.scope"]:checked`);
     const scopeOption = config.baselineStudy.scopeOptions.find(item => item.id === scope?.value);
     result.therapyScope = scopeOption?.label || "";
@@ -319,10 +397,8 @@ function populatePatternCard(card, existing = {}) {
       return;
     }
     if (key === "reviewDecision" && typeof value === "string") {
-      card.querySelectorAll(`input[name="pattern.${CSS.escape(card.dataset.audienceId)}.decision"]`).forEach(input => {
-        const option = config.baselineStudy.decisionOptions.find(item => item.id === input.value);
-        input.checked = value === (option?.label || input.value);
-      });
+      const field = card.querySelector("[data-review-decision]");
+      if (field) field.value = normalizeReviewDecision(value);
       return;
     }
     if (key === "therapyScope" && typeof value === "string") {
@@ -351,12 +427,13 @@ function populatePatternCard(card, existing = {}) {
   });
 }
 
-function syncAudiencePanels(restoredPatterns = null) {
-  cacheCurrentPatterns();
+function syncAudiencePanels(restoredPatterns = null, shouldCache = true) {
+  if (shouldCache) cacheCurrentPatterns();
   if (Array.isArray(restoredPatterns)) {
     const restoredOrder = [];
     restoredPatterns.forEach(pattern => {
       if (pattern?.audienceId) {
+        if (typeof pattern.reviewDecision === "string") pattern.reviewDecision = normalizeReviewDecision(pattern.reviewDecision);
         patternCache.set(pattern.audienceId, pattern);
         restoredOrder.push(pattern.audienceId);
         const sequence = Number(String(pattern.audienceId).split("-").pop());
@@ -371,13 +448,21 @@ function syncAudiencePanels(restoredPatterns = null) {
     : '<p class="empty-persona-state">Choose a starting persona above to open its worksheet.</p>';
   container.querySelectorAll(".pattern-card").forEach(card => populatePatternCard(card, patternCache.get(card.dataset.audienceId) || {}));
   const atLimit = patternOrder.length >= config.maxAudiencePatterns;
-  const selectedOriginalIds = new Set([...patternCache.values()].map(pattern => pattern.sourceArchetypeId).filter(id => id && id !== "new"));
+  const selectedOriginals = new Map([...patternCache.values()].filter(pattern => pattern.sourceArchetypeId && pattern.sourceArchetypeId !== "new").map(pattern => [pattern.sourceArchetypeId, pattern]));
   document.querySelectorAll("[data-add-persona]").forEach(button => {
-    const alreadySelected = selectedOriginalIds.has(button.dataset.addPersona);
-    button.disabled = atLimit || alreadySelected;
-    if (alreadySelected) button.textContent = "Worksheet opened";
-    else if (button.dataset.addPersona === "new") button.textContent = "Create a new persona";
-    else button.textContent = "Edit this persona";
+    button.disabled = atLimit;
+  });
+  document.querySelectorAll("[data-persona-decision]").forEach(button => {
+    const current = selectedOriginals.get(button.dataset.personaId);
+    const option = config.baselineStudy.decisionOptions.find(item => item.id === button.dataset.personaDecision);
+    const selected = current?.reviewDecision === option?.label;
+    button.disabled = atLimit && !current;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", selected ? "true" : "false");
+  });
+  document.querySelectorAll("[data-persona-status]").forEach(status => {
+    const current = selectedOriginals.get(status.dataset.personaStatus);
+    status.textContent = current ? `Current choice: ${current.reviewDecision}. Worksheet opened below.` : "";
   });
   document.querySelector("#pattern-count").textContent = atLimit
     ? `Maximum of ${config.maxAudiencePatterns} persona worksheets reached.`
@@ -397,6 +482,56 @@ function wireEvents() {
     updateProgress();
   });
   form.addEventListener("click", event => {
+    const viewButton = event.target.closest("[data-view-persona]");
+    if (viewButton) {
+      openPersonaStudy(viewButton.dataset.viewPersona);
+      return;
+    }
+    const decisionButton = event.target.closest("[data-persona-decision]");
+    if (decisionButton) {
+      cacheCurrentPatterns();
+      const sourceId = decisionButton.dataset.personaId;
+      const source = config.baselineStudy.archetypes.find(archetype => archetype.id === sourceId);
+      const option = config.baselineStudy.decisionOptions.find(item => item.id === decisionButton.dataset.personaDecision);
+      if (!source || !option) return;
+      let existing = [...patternCache.values()].find(pattern => pattern.sourceArchetypeId === sourceId);
+      if (!existing && patternOrder.length >= config.maxAudiencePatterns) return;
+      if (!existing) {
+        const id = nextPatternId();
+        existing = {
+          audienceId: id,
+          sourceArchetypeId: source.id,
+          sourceArchetypeTitle: source.title,
+          sourceArchetypeSummary: source.summary,
+          workingLabel: source.title
+        };
+        patternOrder.push(id);
+      }
+      const wasRetired = existing.reviewDecision === "This persona is no longer relevant";
+      existing.reviewDecision = option.label;
+      if (option.id === "retire") existing.therapyScope = "Not relevant to either current service line";
+      else if (wasRetired && existing.therapyScope === "Not relevant to either current service line") existing.therapyScope = "";
+      patternCache.set(existing.audienceId, existing);
+      syncAudiencePanels(null, false);
+      document.querySelector(`[data-audience-id="${CSS.escape(existing.audienceId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      scheduleAutosave();
+      return;
+    }
+    const addProfileButton = event.target.closest("[data-add-profile-item]");
+    if (addProfileButton) {
+      const section = addProfileButton.closest("[data-profile-section]");
+      section?.querySelector(".profile-items")?.insertAdjacentHTML("beforeend", renderProfileRow(addProfileButton.dataset.addProfileItem, { text: "", selected: true }));
+      const newField = section?.querySelector("[data-profile-item]:last-child [data-profile-value]");
+      newField?.focus();
+      scheduleAutosave();
+      updateProgress();
+      return;
+    }
+    const focusPersonaButton = event.target.closest("[data-focus-persona]");
+    if (focusPersonaButton) {
+      document.querySelector(`[data-persona-choice="${CSS.escape(focusPersonaButton.dataset.focusPersona)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     const personaButton = event.target.closest("[data-add-persona]");
     if (personaButton && patternOrder.length < config.maxAudiencePatterns) {
       cacheCurrentPatterns();
@@ -412,7 +547,7 @@ function wireEvents() {
         workingLabel: source?.title || ""
       });
       patternOrder.push(id);
-      syncAudiencePanels();
+      syncAudiencePanels(null, false);
       document.querySelector(`[data-audience-id="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
       scheduleAutosave();
       return;
@@ -423,14 +558,38 @@ function wireEvents() {
       const id = removeButton.dataset.removePattern;
       patternOrder = patternOrder.filter(patternId => patternId !== id);
       patternCache.delete(id);
-      syncAudiencePanels();
+      syncAudiencePanels(null, false);
       scheduleAutosave();
     }
   });
   form.addEventListener("submit", submitForm);
   document.querySelector("#save-backup").addEventListener("click", () => downloadJson(buildSubmission(), "draft"));
   document.querySelector("#clear-draft").addEventListener("click", clearDraft);
+  document.querySelectorAll("[data-close-persona-study]").forEach(button => button.addEventListener("click", closePersonaStudy));
+  document.querySelector("#persona-study-dialog").addEventListener("click", event => {
+    if (event.target === event.currentTarget) closePersonaStudy();
+  });
   wireDictation(document);
+}
+
+function openPersonaStudy(personaId) {
+  const persona = config.baselineStudy.archetypes.find(item => item.id === personaId);
+  const dialog = document.querySelector("#persona-study-dialog");
+  if (!persona || !dialog) return;
+  dialog.querySelector("#persona-study-title").textContent = `${persona.personName ? `${persona.personName} — ` : ""}${persona.title}`;
+  const content = dialog.querySelector("#persona-study-content");
+  content.innerHTML = persona.fullStudyHtml || "<p>The full source study is unavailable.</p>";
+  content.querySelectorAll("a").forEach(link => {
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+  });
+  dialog.showModal();
+  dialog.querySelector("[data-close-persona-study]")?.focus();
+}
+
+function closePersonaStudy() {
+  const dialog = document.querySelector("#persona-study-dialog");
+  if (dialog?.open) dialog.close();
 }
 
 function wireDictation(scope) {
