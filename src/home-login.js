@@ -1,6 +1,7 @@
 const sessionEndpoint = "https://api.oobcreative.com/discovery/account/claim/?mode=session";
 const resultsUrl = "https://api.oobcreative.com/discovery/results/";
 const adminUrl = "https://api.oobcreative.com/discovery/results/invitations/";
+const projectUrl = "https://api.oobcreative.com/discovery/project/";
 const forgotUrl = "https://api.oobcreative.com/discovery/account/forgot/";
 
 const signInPanel = document.querySelector("#sign-in-panel");
@@ -28,6 +29,10 @@ function esc(value) {
 function projectIntakeUrl(projectId) {
   if (projectId === "varetto") return "./varetto/";
   return null;
+}
+
+function projectDashboardUrl(projectId) {
+  return `${projectUrl}?project_id=${encodeURIComponent(projectId)}`;
 }
 
 function setLoginStatus(message, type = "") {
@@ -59,11 +64,11 @@ function renderSignedIn(session) {
 
   headerAccountName.textContent = user.username;
   headerAccountRole.textContent = user.accountType;
-  const actions = [`<a class="button" href="${resultsUrl}">${user.systemAdmin ? "Responses" : "My responses"}</a>`];
+  const actions = [`<a class="button" href="${resultsUrl}">${user.systemAdmin ? "Responses" : "Project responses"}</a>`];
   if (user.systemAdmin) actions.push(`<a class="button secondary" href="${adminUrl}">Projects, users &amp; access</a>`);
   headerAccountActions.innerHTML = actions.join("");
 
-  accountSummary.innerHTML = `<p class="eyebrow">${esc(user.accountType)}</p><h1>Welcome, ${esc(user.username)}.</h1><p class="lede">Signed in as ${esc(user.email)}. Your Discovery options are based on this account.</p>`;
+  accountSummary.innerHTML = `<p class="eyebrow">${esc(user.accountType)}</p><h1>Welcome, ${esc(user.username)}.</h1><p class="lede">Signed in as ${esc(user.email)}. Project membership determines which shared Discovery data is available to this account.</p>`;
 
   if (!projects.length) {
     projectList.innerHTML = `<article class="discovery-card muted-card"><div><p class="card-kicker">No active projects</p><h3>No project access is currently assigned.</h3><p>Ask a Full Admin if you expected to see a project here.</p></div></article>`;
@@ -72,10 +77,10 @@ function renderSignedIn(session) {
 
   projectList.innerHTML = projects.map(project => {
     const intakeUrl = projectIntakeUrl(project.id);
-    const action = intakeUrl
+    const intakeAction = intakeUrl
       ? `<a class="button" href="${intakeUrl}">Open ${esc(project.name)} Discovery</a>`
       : `<span class="button disabled" aria-disabled="true">Intake not configured</span>`;
-    return `<article class="discovery-card"><div><p class="card-kicker">${esc(project.businessType || "Project")}</p><h3>${esc(project.name)}</h3><p>Project ID: ${esc(project.id)}</p></div>${action}</article>`;
+    return `<article class="discovery-card"><div><p class="card-kicker">${esc(project.businessType || "Project")}</p><h3>${esc(project.name)}</h3><p>Project ID: ${esc(project.id)}</p></div><div class="account-actions"><a class="button secondary" href="${projectDashboardUrl(project.id)}">Project dashboard</a>${intakeAction}</div></article>`;
   }).join("");
 }
 
