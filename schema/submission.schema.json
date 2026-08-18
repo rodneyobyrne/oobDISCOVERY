@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://discovery.oobcreative.com/schema/therapy-discovery-submission-v3.json",
-  "title": "oobDISCOVERY Therapy Website Submission",
+  "$id": "https://discovery.oobcreative.com/schema/clinical-audience-mapping-submission-v4.json",
+  "title": "oobDISCOVERY Clinical Audience Mapping Submission",
   "type": "object",
   "required": ["submissionId", "system", "discoveryType", "questionnaireVersion", "client", "respondent", "timing", "services", "audiences", "patientPatterns", "narrative", "sourceIntegrity"],
   "properties": {
@@ -9,7 +9,7 @@
     "system": { "const": "oobDISCOVERY" },
     "discoveryType": { "const": "clinician" },
     "systemVersion": { "type": "string" },
-    "questionnaireVersion": { "type": "string", "pattern": "-v3$" },
+    "questionnaireVersion": { "type": "string", "pattern": "-v4$" },
     "client": {
       "type": "object",
       "required": ["id", "label"],
@@ -39,7 +39,7 @@
     },
     "services": {
       "type": "object",
-      "required": ["offered", "recipients", "boundaries"],
+      "required": ["offered", "recipients", "currentPopulation", "intendedPopulation", "boundaries"],
       "properties": {
         "offered": {
           "type": "array",
@@ -53,73 +53,82 @@
           "uniqueItems": true,
           "items": { "type": "string", "maxLength": 240 }
         },
+        "currentPopulation": { "type": "string", "maxLength": 10000 },
+        "intendedPopulation": { "type": "string", "maxLength": 10000 },
         "boundaries": { "type": "string", "maxLength": 10000 }
       },
       "additionalProperties": false
     },
     "audiences": {
       "type": "array",
-      "maxItems": 3,
+      "minItems": 1,
+      "maxItems": 4,
       "items": {
         "type": "object",
         "required": ["id", "title", "situation"],
         "properties": {
           "id": { "type": "string", "maxLength": 80 },
           "title": { "type": "string", "maxLength": 240 },
-          "situation": { "type": "string", "maxLength": 1600 }
+          "situation": { "type": "string", "maxLength": 10000 }
         },
         "additionalProperties": false
       }
     },
     "patientPatterns": {
       "type": "array",
-      "maxItems": 3,
+      "minItems": 1,
+      "maxItems": 4,
       "items": {
         "type": "object",
-        "required": ["audienceId", "title", "situation", "helpSeekingMoment", "outsideView", "privateExperience", "repeatedPattern", "temporaryFunction", "desiredChange", "contactHesitation", "serviceFit", "associatedConditions", "referralBoundary"],
+        "required": ["audienceId", "audienceBasis", "evidenceSources", "clinicalContext", "workingLabel", "audienceRole", "stableContext", "helpSeekingState", "observedAndPrivate", "functionAndDesiredChange", "resistanceAndTrust", "languageSignals", "fitAndBoundary", "distinction"],
         "properties": {
           "audienceId": { "type": "string", "maxLength": 80 },
-          "title": { "type": "string", "maxLength": 240 },
-          "situation": { "type": "string", "maxLength": 1600 },
-          "helpSeekingMoment": { "type": "string", "maxLength": 10000 },
-          "outsideView": { "type": "string", "maxLength": 10000 },
-          "privateExperience": { "type": "string", "maxLength": 10000 },
-          "repeatedPattern": { "type": "string", "maxLength": 10000 },
-          "temporaryFunction": { "type": "string", "maxLength": 10000 },
-          "desiredChange": { "type": "string", "maxLength": 10000 },
-          "contactHesitation": { "type": "string", "maxLength": 10000 },
-          "serviceFit": { "type": "string", "maxLength": 10000 },
-          "associatedConditions": {
+          "audienceBasis": { "type": "string", "maxLength": 240 },
+          "evidenceSources": {
+            "type": "array",
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": { "type": "string", "maxLength": 240 }
+          },
+          "clinicalContext": {
             "type": "array",
             "maxItems": 30,
             "uniqueItems": true,
             "items": { "type": "string", "maxLength": 240 }
           },
-          "referralBoundary": { "type": "string", "maxLength": 10000 }
+          "workingLabel": { "type": "string", "maxLength": 240 },
+          "audienceRole": { "type": "string", "maxLength": 10000 },
+          "stableContext": { "type": "string", "maxLength": 10000 },
+          "helpSeekingState": { "type": "string", "maxLength": 10000 },
+          "observedAndPrivate": { "type": "string", "maxLength": 10000 },
+          "functionAndDesiredChange": { "type": "string", "maxLength": 10000 },
+          "resistanceAndTrust": { "type": "string", "maxLength": 10000 },
+          "languageSignals": { "type": "string", "maxLength": 10000 },
+          "fitAndBoundary": { "type": "string", "maxLength": 10000 },
+          "distinction": { "type": "string", "maxLength": 10000 }
         },
         "additionalProperties": false
       }
     },
     "narrative": {
       "type": "object",
-      "required": ["searchLanguage", "recognitionNeed", "languageToAvoid", "honestPromise"],
+      "required": ["honestPromise"],
       "properties": {
-        "searchLanguage": { "type": "string", "maxLength": 10000 },
-        "recognitionNeed": { "type": "string", "maxLength": 10000 },
-        "languageToAvoid": { "type": "string", "maxLength": 10000 },
         "honestPromise": { "type": "string", "maxLength": 10000 }
       },
       "additionalProperties": false
     },
     "sourceIntegrity": {
       "type": "object",
-      "required": ["responseType", "patientIdentifyingInformationRequested", "interpretationIncluded", "respondentHypothesisIncluded", "evidenceModel"],
+      "required": ["responseType", "patientIdentifyingInformationRequested", "interpretationIncluded", "respondentHypothesisIncluded", "archetypeGenerated", "diagnosticAssessment", "evidenceModel"],
       "properties": {
-        "responseType": { "const": "stakeholder-discovery-response" },
+        "responseType": { "const": "clinical-audience-mapping-response" },
         "patientIdentifyingInformationRequested": { "const": false },
         "interpretationIncluded": { "const": false },
         "respondentHypothesisIncluded": { "const": true },
-        "evidenceModel": { "const": "stakeholder-observation-and-professional-judgment" }
+        "archetypeGenerated": { "const": false },
+        "diagnosticAssessment": { "const": false },
+        "evidenceModel": { "const": "clinician-reported-observation-inference-and-intended-audience-hypothesis" }
       },
       "additionalProperties": false
     }

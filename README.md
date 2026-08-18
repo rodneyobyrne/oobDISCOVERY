@@ -1,6 +1,6 @@
 # oobDISCOVERY-CLINICIAN
 
-An oobCREATIVE discovery system for defining therapy services and capturing the human situations, lived-language insights, and boundaries needed for patient-centered website strategy.
+An oobCREATIVE discovery system for defining therapy services and mapping the distinct audience patterns, lived-language insights, and boundaries needed for patient-centered website strategy.
 
 ## Purpose
 
@@ -8,9 +8,11 @@ This repository contains the first discovery type in the broader `discovery.oobc
 
 The intended reasoning flow is:
 
-**service definition → priority situations → human patterns → persona hypotheses → website content**
+**practice reality → candidate audience patterns → overlap/distinction review → communication archetypes → website content**
 
-The form confirms launch services, asks respondents to choose up to three priority audience situations, and then examines what those people may be experiencing. Diagnoses and clinical concerns remain secondary to recognizable thoughts, feelings, behaviors, and desired change.
+Questionnaire version 4 asks a clinician to describe one candidate audience at a time. It explicitly separates relatively stable context from the state-dependent presentation that brings someone to care, and it distinguishes direct language, repeated observation, collateral information, clinical inference, and future-audience hypotheses. Diagnoses and clinical concerns remain contextual modifiers rather than automatic archetype boundaries.
+
+The form accepts up to four candidate patterns, but it does not turn four entries into four personas. Downstream analysis proposes likely overlaps and meaningful distinctions for clinician review.
 
 ## Current status
 
@@ -86,8 +88,8 @@ assets/styles.css                           Shared oobCREATIVE interface styling
 src/app.js                                  Form rendering, autosave, dictation, validation, submit
 src/system-config.js                        Shared runtime configuration
 config/clinician-core.js                    Reusable audience-pattern questions
-config/varetto.js                           Varetto services and audience prompts
-schema/submission.schema.json               Submission data contract
+config/varetto.js                           Varetto services and evidence options
+schema/submission.schema.json               Version 4 submission data contract
 server/api/discovery/results/index.php      Protected results workspace
 docs/METHOD.md                              Discovery methodology and guardrails
 docs/DATA-CONNECTION.md                     Bluehost/API handoff requirements

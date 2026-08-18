@@ -157,6 +157,8 @@ $discoveryType = requireString($payload, 'discoveryType', 40, $errors);
 $questionnaireVersion = requireString($payload, 'questionnaireVersion', 80, $errors);
 $usesV2Contract = substr($questionnaireVersion, -3) === '-v2';
 $usesV3Contract = substr($questionnaireVersion, -3) === '-v3';
+$usesV4Contract = substr($questionnaireVersion, -3) === '-v4';
+$usesModernContract = $usesV3Contract || $usesV4Contract;
 if ($system !== 'oobDISCOVERY') $errors[] = 'system is invalid.';
 if ($discoveryType !== 'clinician') $errors[] = 'discoveryType is invalid.';
 
@@ -169,16 +171,16 @@ if ($allowedClientIds !== [] && !in_array($clientId, $allowedClientIds, true)) $
 
 $respondent = $payload['respondent'] ?? null;
 if (!isAssocArray($respondent)) { $errors[] = 'respondent must be an object.'; $respondent = []; }
-$respondentName = requireString($respondent, 'name', 160, $errors, $usesV3Contract);
+$respondentName = requireString($respondent, 'name', 160, $errors, $usesModernContract);
 $respondentEmail = requireString($respondent, 'email', 254, $errors, true);
-$respondentRole = $usesV3Contract ? '' : requireString($respondent, 'role', 160, $errors, !$usesV2Contract);
-$respondentPerspective = $usesV3Contract
+$respondentRole = $usesModernContract ? '' : requireString($respondent, 'role', 160, $errors, !$usesV2Contract);
+$respondentPerspective = $usesModernContract
     ? ''
     : ($usesV2Contract
         ? requireString($respondent, 'perspective', 40, $errors)
         : (is_string($respondent['perspective'] ?? null) ? trim($respondent['perspective']) : 'clinician'));
 if ($respondentEmail !== '' && filter_var($respondentEmail, FILTER_VALIDATE_EMAIL) === false) $errors[] = 'respondent.email is invalid.';
-if (!$usesV3Contract && !in_array($respondentPerspective, ['clinician', 'owner', 'both'], true)) $errors[] = 'respondent.perspective is invalid.';
+if (!$usesModernContract && !in_array($respondentPerspective, ['clinician', 'owner', 'both'], true)) $errors[] = 'respondent.perspective is invalid.';
 
 $timing = $payload['timing'] ?? null;
 if (!isAssocArray($timing)) $errors[] = 'timing must be an object.';
@@ -192,27 +194,33 @@ else {
 
 $services = $payload['services'] ?? null;
 $audiences = $payload['audiences'] ?? null;
-if ($usesV3Contract) {
+if ($usesModernContract) {
     if (!isAssocArray($services)) { $errors[] = 'services must be an object.'; $services = []; }
     validateStringArray($services['offered'] ?? null, 'services.offered', 30, 240, $errors);
     validateStringArray($services['recipients'] ?? null, 'services.recipients', 30, 240, $errors);
+    if ($usesV4Contract) {
+        requireString($services, 'currentPopulation', 10000, $errors, true);
+        requireString($services, 'intendedPopulation', 10000, $errors, true);
+    }
     requireString($services, 'boundaries', 10000, $errors, true);
 
     if (!is_array($audiences)) $errors[] = 'audiences must be an array.';
     else {
-        if (count($audiences) > 3) $errors[] = 'audiences may contain at most 3 items.';
+        $audienceLimit = $usesV4Contract ? 4 : 3;
+        if ($usesV4Contract && count($audiences) < 1) $errors[] = 'audiences must contain at least 1 item.';
+        if (count($audiences) > $audienceLimit) $errors[] = 'audiences may contain at most ' . $audienceLimit . ' items.';
         foreach ($audiences as $i => $item) {
             if (!isAssocArray($item)) { $errors[] = 'audiences[' . $i . '] must be an object.'; continue; }
             requireString($item, 'id', 80, $errors);
             requireString($item, 'title', 240, $errors);
-            requireString($item, 'situation', 1600, $errors);
+            requireString($item, 'situation', $usesV4Contract ? 10000 : 1600, $errors);
         }
     }
 }
 
 $archetypes = $payload['archetypes'] ?? null;
-if (!$usesV3Contract && !is_array($archetypes)) $errors[] = 'archetypes must be an array.';
-elseif (!$usesV3Contract) {
+if (!$usesModernContract && !is_array($archetypes)) $errors[] = 'archetypes must be an array.';
+elseif (!$usesModernContract) {
     if (count($archetypes) < 1 || count($archetypes) > 50) $errors[] = 'archetypes must contain between 1 and 50 items.';
     $relationshipAllowed = ['', 'can-serve', 'strong-fit', 'refer', 'unsure'];
     $caseloadAllowed = ['', 'more', 'neutral', 'less'];
@@ -233,16 +241,22 @@ elseif (!$usesV3Contract) {
 }
 
 $patientPatterns = $payload['patientPatterns'] ?? null;
+if ($usesV4Contract && is_array($patientPatterns) && count($patientPatterns) < 1) $errors[] = 'patientPatterns must contain at least 1 item.';
 if (!is_array($patientPatterns)) $errors[] = 'patientPatterns must be an array.';
 else foreach ($patientPatterns as $i => $pattern) {
-    $patternLimit = $usesV3Contract ? 3 : 10;
+    $patternLimit = $usesV4Contract ? 4 : ($usesV3Contract ? 3 : 10);
     if (count($patientPatterns) > $patternLimit) { $errors[] = 'patientPatterns may contain at most ' . $patternLimit . ' items.'; break; }
     if (!isAssocArray($pattern)) { $errors[] = 'patientPatterns[' . $i . '] must be an object.'; continue; }
     if (count($pattern) > 40) { $errors[] = 'patientPatterns[' . $i . '] contains too many fields.'; continue; }
+    if ($usesV4Contract) {
+        foreach (['audienceId', 'audienceBasis', 'evidenceSources', 'clinicalContext', 'workingLabel', 'audienceRole', 'stableContext', 'helpSeekingState', 'observedAndPrivate', 'functionAndDesiredChange', 'resistanceAndTrust', 'languageSignals', 'fitAndBoundary', 'distinction'] as $requiredKey) {
+            if (!array_key_exists($requiredKey, $pattern)) $errors[] = 'patientPatterns[' . $i . '].' . $requiredKey . ' is required.';
+        }
+    }
     foreach ($pattern as $key => $value) {
         if (!is_string($key)) { $errors[] = 'patientPatterns[' . $i . '] keys must be strings.'; break; }
-        if ($usesV3Contract && $key === 'associatedConditions') {
-            validateStringArray($value, 'patientPatterns[' . $i . '].associatedConditions', 30, 240, $errors);
+        if (($usesV3Contract && $key === 'associatedConditions') || ($usesV4Contract && in_array($key, ['evidenceSources', 'clinicalContext'], true))) {
+            validateStringArray($value, 'patientPatterns[' . $i . '].' . $key, 30, 240, $errors);
             continue;
         }
         if (!is_string($value)) { $errors[] = 'patientPatterns[' . $i . '].' . $key . ' must be a string.'; break; }
@@ -261,7 +275,16 @@ else {
 }
 
 $sourceIntegrity = $payload['sourceIntegrity'] ?? null;
-if ($usesV3Contract) {
+if ($usesV4Contract) {
+    $sourceIntegrityValid = isAssocArray($sourceIntegrity)
+        && ($sourceIntegrity['responseType'] ?? null) === 'clinical-audience-mapping-response'
+        && ($sourceIntegrity['patientIdentifyingInformationRequested'] ?? null) === false
+        && ($sourceIntegrity['interpretationIncluded'] ?? null) === false
+        && ($sourceIntegrity['respondentHypothesisIncluded'] ?? null) === true
+        && ($sourceIntegrity['archetypeGenerated'] ?? null) === false
+        && ($sourceIntegrity['diagnosticAssessment'] ?? null) === false
+        && ($sourceIntegrity['evidenceModel'] ?? null) === 'clinician-reported-observation-inference-and-intended-audience-hypothesis';
+} elseif ($usesV3Contract) {
     $sourceIntegrityValid = isAssocArray($sourceIntegrity)
         && ($sourceIntegrity['responseType'] ?? null) === 'stakeholder-discovery-response'
         && ($sourceIntegrity['patientIdentifyingInformationRequested'] ?? null) === false

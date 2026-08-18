@@ -81,6 +81,7 @@ fieldset.field { padding: 0; border: 0; }
 .field label, .field legend { display: block; margin-bottom: .5rem; font-weight: 700; }
 .help { margin: -.1rem 0 .65rem; color: var(--muted); font-size: .9rem; }
 .question-number { display: inline-grid; width: 1.85rem; height: 1.85rem; margin-right: .65rem; place-items: center; background: #111; color: #fff; font-size: .72rem; line-height: 1; vertical-align: middle; }
+.question-number-wide { width: auto; min-width: 2.45rem; padding-inline: .42rem; }
 input[type="text"], input[type="email"], textarea, select { width: 100%; padding: .8rem .85rem; border: 1px solid #999; background: #fff; color: var(--ink); outline: none; }
 textarea { min-height: 112px; resize: vertical; }
 input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible { outline: 3px solid rgba(17, 17, 17, .2); outline-offset: 3px; border-color: #111; }
@@ -104,8 +105,13 @@ input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible
 .pattern-card { margin: 1.25rem 0; padding: clamp(1.25rem, 3vw, 2.25rem); border: 1px solid; background: #fafaf8; }
 .pattern-card h3 { max-width: 28ch; }
 .pattern-situation { max-width: 760px; margin-bottom: 2rem; color: var(--soft); }
+.pattern-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.75rem; }
+.pattern-heading .text-button { flex: 0 0 auto; margin: 0; }
+.subquestion { margin: 1.15rem 0 .6rem; font-size: .82rem; font-weight: 700; letter-spacing: .045em; text-transform: uppercase; }
 .pattern-questions > .field { padding-top: 1.5rem; border-top: 1px solid; }
 .pattern-questions > .field:first-child { padding-top: 0; border-top: 0; }
+.pattern-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid; }
+.pattern-actions .help { margin: 0; }
 .privacy-confirmation { margin: 2rem 0; padding: 1.25rem; border: 1px solid; }
 .privacy-confirmation label { display: flex; align-items: flex-start; gap: .75rem; font-weight: 700; }
 .privacy-confirmation input { margin-top: .38rem; }
@@ -131,6 +137,7 @@ input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible
   .progress-row { align-items: flex-start; flex-direction: column; gap: .2rem; }
   .form-intro { padding-top: 4.5rem; }
   .form-actions { align-items: stretch; flex-direction: column; }
+  .pattern-heading { flex-direction: column; }
   .form-actions > button { width: 100%; }
   .text-button { margin: .75rem 0 0; }
   .dialog-actions { align-items: stretch; flex-direction: column; }
