@@ -120,7 +120,7 @@ try {
 
 $submissionId = trim((string)($_REQUEST['submission_id'] ?? ''));
 if (preg_match('/^[A-Za-z0-9-]{10,80}$/', $submissionId) !== 1) {
-    oobRenderAccountPage('Response link required', 'Submitted response', 'Open the review link provided after submitting the questionnaire.', '', 400);
+    oobRenderAccountPage('Response link required', 'Submitted response', 'Open a response from your Discovery workspace.', '', 400);
 }
 
 $authenticatedAt = (int)($_SESSION['authenticated_at'] ?? 0);
@@ -143,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
             exit;
         } catch (Throwable $error) {
             responseRecordFailedLogin();
-            $loginError = 'The email/username or password was not recognized.';
+            $loginError = 'The email address, username, or password was not recognized.';
         }
     }
 }
@@ -153,7 +153,7 @@ if (!$principal) {
     http_response_code($loginError ? 401 : 200);
     header('Content-Type: text/html; charset=utf-8');
     ?>
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Review submitted response · oobCREATIVE</title><style><?= responseCss() ?></style></head><body><main class="login-shell"><p class="eyebrow">Private response</p><h2>Sign in to review what you submitted.</h2><p class="lede">The source response stays private and is available only to an authorized Discovery account.</p><?php if ($loginError): ?><p class="notice" role="alert"><?= responseEscape($loginError) ?></p><?php endif; ?><form method="post" class="form"><input type="hidden" name="csrf" value="<?= responseEscape(oobCsrfToken()) ?>"><input type="hidden" name="action" value="login"><input type="hidden" name="submission_id" value="<?= responseEscape($submissionId) ?>"><label for="identifier">Email or username</label><input id="identifier" name="identifier" autocomplete="username" required autofocus><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit">Sign in and review response</button></form><p class="meta"><a href="/discovery/account/forgot/">Forgot your password?</a></p></main></body></html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Review submitted response · oobCREATIVE</title><style><?= responseCss() ?></style></head><body><main class="login-shell"><p class="eyebrow">Private response</p><h2>Sign in to review this response.</h2><p class="lede">Clients can open only responses owned by their own Discovery account. Full Admins can review all responses.</p><?php if ($loginError): ?><p class="notice" role="alert"><?= responseEscape($loginError) ?></p><?php endif; ?><form method="post" class="form"><input type="hidden" name="csrf" value="<?= responseEscape(oobCsrfToken()) ?>"><input type="hidden" name="action" value="login"><input type="hidden" name="submission_id" value="<?= responseEscape($submissionId) ?>"><label for="identifier">Email address or username</label><input id="identifier" name="identifier" autocomplete="username" required autofocus><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit">Sign in and review response</button></form><p class="meta"><a href="/discovery/account/forgot/">Trouble signing in?</a></p></main></body></html>
 <?php
     exit;
 }
@@ -163,11 +163,8 @@ try {
         $statement = $pdo->prepare("SELECT * FROM discovery_submissions WHERE submission_id = :submission_id AND discovery_type = 'clinician' LIMIT 1");
         $statement->execute([':submission_id' => $submissionId]);
     } else {
-        $clientIds = array_values(array_unique(array_map(static fn(array $access): string => (string)$access['client_id'], $principal['clients'])));
-        if ($clientIds === []) throw new RuntimeException('No client access assigned.');
-        $placeholders = implode(',', array_fill(0, count($clientIds), '?'));
-        $statement = $pdo->prepare("SELECT * FROM discovery_submissions WHERE submission_id = ? AND discovery_type = 'clinician' AND client_id IN ({$placeholders}) LIMIT 1");
-        $statement->execute(array_merge([$submissionId], $clientIds));
+        $statement = $pdo->prepare("SELECT * FROM discovery_submissions WHERE submission_id = :submission_id AND discovery_type = 'clinician' AND owner_user_id = :owner_user_id LIMIT 1");
+        $statement->execute([':submission_id' => $submissionId, ':owner_user_id' => (int)$principal['user_id']]);
     }
     $row = $statement->fetch() ?: null;
     if (!$row) throw new RuntimeException('Response not found.');
@@ -199,12 +196,12 @@ $name = trim((string)($payload['respondent']['name'] ?? '')) ?: 'Submitted respo
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Your submitted response · oobCREATIVE</title><style><?= responseCss() ?></style></head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div class="brand">oobCREATIVE · Discovery</div><div class="account">Signed in as <?= responseEscape((string)$principal['username']) ?></div></div></header>
+<header class="topbar"><div class="topbar-inner"><div class="brand">oobCREATIVE · Discovery</div><div class="account">Signed in as <?= responseEscape((string)$principal['username']) ?> · <?= $principal['system_admin'] ? 'Full Admin' : 'Client' ?></div></div></header>
 <main class="page">
   <p class="eyebrow"><?= responseEscape($clientLabel) ?> · Submitted response</p>
   <h1>Here’s what you shared.</h1>
   <p class="lede">Your original answers are kept intact below. We have not turned this response into a persona, marketing recommendation, diagnosis, or final website direction.</p>
-  <div class="actions"><a class="button" href="#source-response">Review source response</a><a class="button secondary" href="?submission_id=<?= rawurlencode($submissionId) ?>&amp;download=source">Download exact source</a><a class="button secondary" href="/discovery/results/">Results workspace</a></div>
+  <div class="actions"><a class="button" href="#source-response">Review source response</a><?php if (!$principal['system_admin']): ?><a class="button" href="https://discovery.oobcreative.com/clinician/?edit=<?= rawurlencode($submissionId) ?>">Edit response</a><?php endif; ?><a class="button secondary" href="?submission_id=<?= rawurlencode($submissionId) ?>&amp;download=source">Download exact source</a><a class="button secondary" href="/discovery/results/">Results workspace</a></div>
 
   <div class="source-note"><strong>Source-first rule:</strong> this page shows the response as submitted. The short observations below are deliberately limited to visible emphasis and recurring language inside this one response.</div>
 
@@ -228,7 +225,7 @@ $name = trim((string)($payload['respondent']['name'] ?? '')) ?: 'Submitted respo
     <?php if (!$usesAudienceMap): ?><section class="source-section"><h2>Website language answers</h2><dl><?php sourceText('What they might search or say', $narrative['searchLanguage'] ?? ''); sourceText('What they need to read to feel understood', $narrative['recognitionNeed'] ?? ''); sourceText('Language to avoid', $narrative['languageToAvoid'] ?? ''); sourceText('What Varetto can honestly promise about the experience', $narrative['honestPromise'] ?? ''); ?></dl></section><?php endif; ?>
   </div>
 
-  <details class="exact-source"><summary>View exact submitted JSON</summary><p class="meta">This is the unaltered payload stored at submission time.</p><pre><?= responseEscape(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) ?></pre></details>
+  <details class="exact-source"><summary>View exact submitted JSON</summary><p class="meta">This is the current stored payload for this submission.</p><pre><?= responseEscape(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) ?></pre></details>
 </main>
 </body>
 </html>
