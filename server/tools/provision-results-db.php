@@ -36,9 +36,12 @@ if ($uapi === null) {
     exit(3);
 }
 
-function runUapi(string $binary, string $cpanelUser, string $module, string $function, array $parameters = []): array
+function runUapi(string $binary, string $module, string $function, array $parameters = []): array
 {
-    $command = [$binary, '--output=json', '--user=' . $cpanelUser, $module, $function];
+    // This script already runs as the authenticated cPanel account over SSH.
+    // Passing --user here makes UAPI attempt a setuid operation, which shared
+    // hosting correctly rejects for a normal account user.
+    $command = [$binary, '--output=json', $module, $function];
     foreach ($parameters as $key => $value) {
         $command[] = $key . '=' . $value;
     }
@@ -88,7 +91,7 @@ try {
         $prefix = str_starts_with($databaseName, $cpanelUser . '_') ? $cpanelUser . '_' : '';
         $databaseUser = $prefix . $suffix;
 
-        runUapi($uapi, $cpanelUser, 'Mysql', 'create_user', [
+        runUapi($uapi, 'Mysql', 'create_user', [
             'name' => $suffix,
             'password' => $databasePassword,
         ]);
@@ -107,7 +110,7 @@ try {
         chmod($resultsDbPath, 0600);
     }
 
-    runUapi($uapi, $cpanelUser, 'Mysql', 'set_privileges_on_database', [
+    runUapi($uapi, 'Mysql', 'set_privileges_on_database', [
         'user' => $databaseUser,
         'database' => $databaseName,
         'privileges' => 'SELECT,INSERT,UPDATE,DELETE,CREATE,ALTER,INDEX,REFERENCES',
