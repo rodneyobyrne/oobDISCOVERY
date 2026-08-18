@@ -215,7 +215,7 @@ if ($usesModernContract) {
             if (!isAssocArray($item)) { $errors[] = 'audiences[' . $i . '] must be an object.'; continue; }
             requireString($item, 'id', 80, $errors);
             requireString($item, 'title', 240, $errors);
-            requireString($item, 'situation', $usesAudienceMapContract ? 10000 : 1600, $errors);
+            requireString($item, 'situation', $usesAudienceMapContract ? 10000 : 1600, $errors, $usesV5Contract);
         }
     }
 }
