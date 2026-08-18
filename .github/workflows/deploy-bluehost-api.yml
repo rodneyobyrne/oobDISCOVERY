@@ -81,6 +81,8 @@ jobs:
           '
 
       - name: Build private results and account config
+        # SMTP authenticates with the licensed Workspace user; the optional
+        # from-address may be an approved alias such as discovery@oobcreative.com.
         env:
           DISCOVERY_RESULTS_VIEWER: ${{ secrets.DISCOVERY_RESULTS_VIEWER }}
           DISCOVERY_RESULTS_PASSWORD_HASH: ${{ secrets.DISCOVERY_RESULTS_PASSWORD_HASH }}
