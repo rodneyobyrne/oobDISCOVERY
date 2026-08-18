@@ -10,8 +10,8 @@ if ($source === false) {
 
 $required = [
     "mode'] ?? '') === 'session'",
-    "'action' => 'login'",
-    "'action' => 'logout'",
+    "\$action === 'logout'",
+    "\$action !== 'login'",
     "'accountType' => (bool)\$principal['system_admin'] ? 'Full Admin' : 'Client'",
     'discovery_projects',
     'discovery_user_clients',
