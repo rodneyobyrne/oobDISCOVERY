@@ -204,17 +204,3 @@ jobs:
             rm -f /home1/reaqfvmy/oob-discovery-verify-smtp.php
             exit $code
           '
-
-      - name: Send and verify live administrator password reset
-        env:
-          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
-          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
-        run: |
-          scp server/tools/send-admin-password-reset.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-send-admin-reset.php"
-          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" '
-            php /home1/reaqfvmy/oob-discovery-send-admin-reset.php
-            code=$?
-            rm -f /home1/reaqfvmy/oob-discovery-send-admin-reset.php
-            exit $code
-          '
-
