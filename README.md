@@ -20,7 +20,7 @@ The form confirms launch services, asks respondents to choose up to three priori
 - Submission contract: implemented.
 - Production API/database: connected at `https://api.oobcreative.com/discovery/submit/`.
 - Protected results workspace: implemented at `https://api.oobcreative.com/discovery/results/`.
-- Results accounts: invitation-based, email-verified, password-reset capable, and scoped by client (disabled until its managed-auth secrets are configured).
+- Results accounts: invitation-based, email-verified, password-reset capable, and scoped by client using Bluehost MySQL and Google Workspace SMTP (disabled until its SMTP secrets are configured).
 - Results exports: exact source JSON and an LLM-ready JSON envelope with provenance and analysis guardrails.
 - Custom domain: active at `https://discovery.oobcreative.com` with HTTPS enforced.
 - Submission retries: idempotent through a draft-stable submission ID.

@@ -25,7 +25,10 @@ assertContract(oobInvitationState(['revoked_at' => '2026-01-01', 'claimed_at' =>
 assertContract(oobInvitationState(['revoked_at' => null, 'claimed_at' => '2026-01-01', 'expires_at' => '2099-01-01 00:00:00']) === 'claimed', 'Expected a claimed invitation.');
 assertContract(oobInvitationState(['revoked_at' => null, 'claimed_at' => null, 'expires_at' => '2000-01-01 00:00:00']) === 'expired', 'Expected an expired invitation.');
 assertContract(oobInvitationState(['revoked_at' => null, 'claimed_at' => null, 'expires_at' => '2099-01-01 00:00:00']) === 'active', 'Expected an active invitation.');
-assertContract(!oobManagedAuthEnabled(['managed_auth' => ['enabled' => false]]), 'Expected managed auth to default off.');
-assertContract(oobManagedAuthEnabled(['managed_auth' => ['enabled' => true, 'supabase_url' => 'https://example.supabase.co', 'supabase_anon_key' => 'key']]), 'Expected complete managed auth config to be enabled.');
+assertContract(!oobAccountAuthEnabled(['account_auth' => ['enabled' => false]]), 'Expected invited accounts to default off.');
+assertContract(oobAccountAuthEnabled(['account_auth' => ['enabled' => true, 'smtp' => ['host' => 'smtp.gmail.com', 'username' => 'sender@example.com', 'password' => 'app-password', 'from_email' => 'discovery@example.com']]]), 'Expected complete account SMTP config to be enabled.');
+assertContract(oobAccountTokenState(null) === 'invalid', 'Expected a missing account token to be invalid.');
+assertContract(oobAccountTokenState(['used_at' => '2026-01-01', 'expires_at' => '2099-01-01 00:00:00']) === 'used', 'Expected a used account token.');
+assertContract(oobAccountTokenState(['used_at' => null, 'expires_at' => '2000-01-01 00:00:00']) === 'expired', 'Expected an expired account token.');
 
 fwrite(STDOUT, "Authentication contracts OK\n");

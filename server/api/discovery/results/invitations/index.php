@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 oobRevokeInvitation($pdo, (int)$id);
                 oobRedirect('/discovery/results/invitations/');
             }
-            if (!oobManagedAuthEnabled($accessConfig)) throw new OobAuthException('Managed accounts must be configured before invitation links can be created.', 503, 'managed_auth_disabled');
+            if (!oobAccountAuthEnabled($accessConfig)) throw new OobAuthException('Account email must be configured before invitation links can be created.', 503, 'account_auth_disabled');
             $created = oobCreateInvitation(
                 $pdo,
                 strtolower(trim((string)($_POST['client_id'] ?? ''))),
@@ -69,10 +69,10 @@ if ($created) {
     $body .= '<section class="card"><p class="eyebrow">Created once</p><h2>Copy this invitation now</h2><p class="notice notice-success">For security, the complete link will not be shown again.</p><p class="mono">' . oobEscape($claimUrl) . '</p><label for="email-copy"><strong>Formatted message</strong></label><p id="email-copy" class="mono">' . nl2br(oobEscape($emailText)) . '</p></section><div class="rule"></div>';
 }
 
-$managedNotice = oobManagedAuthEnabled($accessConfig)
+$accountNotice = oobAccountAuthEnabled($accessConfig)
     ? ''
-    : '<p class="notice notice-info">Managed accounts are disabled. Add the required deployment secrets and Supabase settings before creating links.</p>';
-$body .= $managedNotice . '<section class="card"><p class="eyebrow">New invitation</p><h2>Grant client access</h2><form method="post" class="form"><input type="hidden" name="csrf" value="' . oobEscape(oobCsrfToken()) . '"><input type="hidden" name="action" value="create">'
+    : '<p class="notice notice-info">Invited accounts are disabled until the Google Workspace SMTP secrets are configured.</p>';
+$body .= $accountNotice . '<section class="card"><p class="eyebrow">New invitation</p><h2>Grant client access</h2><form method="post" class="form"><input type="hidden" name="csrf" value="' . oobEscape(oobCsrfToken()) . '"><input type="hidden" name="action" value="create">'
     . '<label for="client_label">Client name</label><input id="client_label" name="client_label" type="text" maxlength="160" required value="' . oobEscape((string)($_POST['client_label'] ?? 'Varetto Recovery')) . '">'
     . '<label for="client_id">Client ID</label><input id="client_id" name="client_id" type="text" maxlength="80" pattern="[a-z0-9][a-z0-9-]{1,79}" required value="' . oobEscape((string)($_POST['client_id'] ?? 'varetto')) . '"><small>Must exactly match the questionnaire client ID.</small>'
     . '<div class="split"><div><label for="role">Access level</label><select id="role" name="role"><option value="viewer">Viewer</option><option value="admin">Client admin</option></select></div><div><label for="days">Expires after</label><select id="days" name="days"><option value="7">7 days</option><option value="3">3 days</option><option value="14">14 days</option><option value="30">30 days</option></select></div></div><button type="submit">Create unique link</button></form></section>';

@@ -180,9 +180,9 @@ function renderLogin(array $accessConfig, ?string $error = null, int $status = 2
     $token = escapeHtml(csrfToken());
     $errorMarkup = $error ? '<p class="notice notice-error" role="alert">' . escapeHtml($error) . '</p>' : '';
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Discovery results · oobCREATIVE</title>';
-    $managedHelp = oobManagedAuthEnabled($accessConfig) ? '<p class="login-help"><a href="/discovery/account/forgot/">Forgot your password?</a></p>' : '';
+    $accountHelp = oobAccountAuthEnabled($accessConfig) ? '<p class="login-help"><a href="/discovery/account/forgot/">Forgot your password?</a></p>' : '';
     echo '<style>' . dashboardCss() . '</style></head><body class="login-page"><main class="login-shell"><img class="login-mark" src="https://skills.oobcreative.com/branding/Mark-black.svg" alt="oobCREATIVE"><p class="eyebrow">Private workspace</p><h1>Discovery results</h1><p class="lede">Sign in to review the client discovery responses available to your account.</p>' . $errorMarkup;
-    echo '<form method="post" class="login-form"><input type="hidden" name="csrf" value="' . $token . '"><input type="hidden" name="action" value="login"><label for="username">Email or username</label><input id="username" name="username" type="text" autocomplete="username" required autofocus><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit">Sign in</button></form>' . $managedHelp . '<p class="privacy-note">Responses are private research material. Do not share or copy patient-identifying information into this system.</p></main></body></html>';
+    echo '<form method="post" class="login-form"><input type="hidden" name="csrf" value="' . $token . '"><input type="hidden" name="action" value="login"><label for="username">Email or username</label><input id="username" name="username" type="text" autocomplete="username" required autofocus><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit">Sign in</button></form>' . $accountHelp . '<p class="privacy-note">Responses are private research material. Do not share or copy patient-identifying information into this system.</p></main></body></html>';
     exit;
 }
 
@@ -238,10 +238,6 @@ if ($configuredUsername === '' || $configuredHash === '') {
 
 oobStartDiscoverySession();
 
-if (!empty($_SESSION['password_recovery'])) {
-    redirectTo('/discovery/account/reset/');
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validCsrf()) renderLogin($accessConfig, 'Your session expired. Refresh the page and try again.', 400);
     $action = (string)($_POST['action'] ?? '');
@@ -254,16 +250,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $username = is_string($_POST['username'] ?? null) ? trim($_POST['username']) : '';
         $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
         $legacyMatches = hash_equals($configuredUsername, $username) && password_verify($password, $configuredHash);
-        $managedMatches = false;
-        if (!$legacyMatches && oobManagedAuthEnabled($accessConfig)) {
+        $accountMatches = false;
+        if (!$legacyMatches && oobAccountAuthEnabled($accessConfig)) {
             try {
-                oobManagedLogin($accessConfig, $pdo, $username, $password);
-                $managedMatches = true;
+                oobAccountLogin($pdo, $username, $password);
+                $accountMatches = true;
             } catch (Throwable $error) {
-                $managedMatches = false;
+                $accountMatches = false;
             }
         }
-        if (!$legacyMatches && !$managedMatches) {
+        if (!$legacyMatches && !$accountMatches) {
             recordFailedLogin();
             renderLogin($accessConfig, 'The email/username or password was not recognized.', 401);
         }

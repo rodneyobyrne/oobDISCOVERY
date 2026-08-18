@@ -6,10 +6,17 @@ return [
     'username' => 'REPLACE_AT_DEPLOY_TIME',
     'password_hash' => 'REPLACE_WITH_PASSWORD_HASH',
     'timezone' => 'America/Denver',
-    'managed_auth' => [
+    'account_auth' => [
         'enabled' => false,
-        'supabase_url' => 'https://YOUR_PROJECT.supabase.co',
-        'supabase_anon_key' => 'REPLACE_AT_DEPLOY_TIME',
         'site_url' => 'https://api.oobcreative.com',
+        'vendor_autoload' => '/home1/reaqfvmy/oob-discovery-vendor/autoload.php',
+        'smtp' => [
+            'host' => 'smtp.gmail.com',
+            'port' => 587,
+            'username' => 'REPLACE_AT_DEPLOY_TIME',
+            'password' => 'REPLACE_WITH_GOOGLE_APP_PASSWORD',
+            'from_email' => 'discovery@oobcreative.com',
+            'from_name' => 'oobCREATIVE Discovery',
+        ],
     ],
 ];
