@@ -10,11 +10,11 @@ function oobSendConfiguredAccountEmail(array $accessConfig, string $recipient, s
     require_once oobMailerAutoloadPath($accessConfig);
     $smtp = oobSmtpConfig($accessConfig);
     $username = strtolower(trim((string)($smtp['username'] ?? '')));
-    $replyTo = strtolower(trim((string)($smtp['from_email'] ?? '')));
+    $fromEmail = strtolower(trim((string)($smtp['from_email'] ?? '')));
     $fromName = (string)($smtp['from_name'] ?? 'oobCREATIVE Discovery');
     $recipient = strtolower(trim($recipient));
 
-    if (!filter_var($username, FILTER_VALIDATE_EMAIL) || !filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
+    if (!filter_var($username, FILTER_VALIDATE_EMAIL) || !filter_var($fromEmail, FILTER_VALIDATE_EMAIL) || !filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
         throw new OobAuthException('Account email is not configured.', 503, 'account_email_invalid');
     }
 
@@ -33,14 +33,11 @@ function oobSendConfiguredAccountEmail(array $accessConfig, string $recipient, s
         $mailer->Timeout = 20;
         $mailer->CharSet = 'UTF-8';
 
-        // Authentication and envelope sender use the licensed Workspace mailbox.
-        // The discovery alias remains the reply identity without depending on
-        // Google accepting the alias as an SMTP From address.
-        $mailer->setFrom($username, $fromName);
+        // Authenticate and return bounces through the licensed Workspace user,
+        // while presenting the approved Discovery alias as the visible sender.
+        $mailer->setFrom($fromEmail, $fromName);
         $mailer->Sender = $username;
-        if (filter_var($replyTo, FILTER_VALIDATE_EMAIL) && $replyTo !== $username) {
-            $mailer->addReplyTo($replyTo, $fromName);
-        }
+        if ($fromEmail !== $username) $mailer->addReplyTo($fromEmail, $fromName);
 
         $mailer->addAddress($recipient);
         $mailer->isHTML(true);
