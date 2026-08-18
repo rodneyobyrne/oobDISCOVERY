@@ -8,6 +8,7 @@ on:
       - "CNAME"
       - "assets/**"
       - "clinician/**"
+      - "varetto/**"
       - "config/**"
       - "src/**"
       - ".github/workflows/pages.yml"
@@ -36,7 +37,7 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html CNAME _site/
-          cp -R assets clinician config src _site/
+          cp -R assets clinician varetto config src _site/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
