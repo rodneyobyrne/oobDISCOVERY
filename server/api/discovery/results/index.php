@@ -79,19 +79,28 @@ if (!$principal) {
 
 $timezone = (string)($accessConfig['timezone'] ?? 'America/Denver');
 $filterUser = null;
+$projects = [];
 try {
     if ($principal['system_admin']) {
+        $projects = $pdo->query("SELECT project_id, project_name, client_business_type FROM discovery_projects WHERE status = 'active' ORDER BY project_name")->fetchAll();
         $requestedUserId = filter_input(INPUT_GET, 'user_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         if ($requestedUserId) {
             $filterUser = oobUserById($pdo, (int)$requestedUserId);
             if (!$filterUser) throw new RuntimeException('User not found.');
-            $statement = $pdo->prepare("SELECT s.*, u.username AS owner_username, u.email AS owner_email FROM discovery_submissions s LEFT JOIN discovery_users u ON u.id = s.owner_user_id WHERE s.discovery_type = 'clinician' AND s.client_id <> 'deployment-check' AND s.owner_user_id = :owner_user_id ORDER BY s.updated_at DESC, s.id DESC LIMIT 100");
+            $statement = $pdo->prepare("SELECT s.*, u.username AS owner_username, u.email AS owner_email, COALESCE(p.project_name, s.client_id) AS project_name, COALESCE(p.client_business_type, s.client_business_type, 'unclassified') AS business_type FROM discovery_submissions s LEFT JOIN discovery_users u ON u.id = s.owner_user_id LEFT JOIN discovery_projects p ON p.project_id = s.client_id WHERE s.client_id <> 'deployment-check' AND s.owner_user_id = :owner_user_id ORDER BY s.updated_at DESC, s.id DESC LIMIT 100");
             $statement->execute([':owner_user_id' => (int)$requestedUserId]);
         } else {
-            $statement = $pdo->query("SELECT s.*, u.username AS owner_username, u.email AS owner_email FROM discovery_submissions s LEFT JOIN discovery_users u ON u.id = s.owner_user_id WHERE s.discovery_type = 'clinician' AND s.client_id <> 'deployment-check' ORDER BY s.updated_at DESC, s.id DESC LIMIT 100");
+            $statement = $pdo->query("SELECT s.*, u.username AS owner_username, u.email AS owner_email, COALESCE(p.project_name, s.client_id) AS project_name, COALESCE(p.client_business_type, s.client_business_type, 'unclassified') AS business_type FROM discovery_submissions s LEFT JOIN discovery_users u ON u.id = s.owner_user_id LEFT JOIN discovery_projects p ON p.project_id = s.client_id WHERE s.client_id <> 'deployment-check' ORDER BY s.updated_at DESC, s.id DESC LIMIT 100");
         }
     } else {
-        $statement = $pdo->prepare("SELECT s.*, u.username AS owner_username, u.email AS owner_email FROM discovery_submissions s LEFT JOIN discovery_users u ON u.id = s.owner_user_id WHERE s.discovery_type = 'clinician' AND s.owner_user_id = :owner_user_id ORDER BY s.updated_at DESC, s.id DESC LIMIT 100");
+        $clientIds = array_values(array_unique(array_map(static fn(array $access): string => (string)$access['client_id'], $principal['clients'])));
+        if ($clientIds !== []) {
+            $placeholders = implode(',', array_fill(0, count($clientIds), '?'));
+            $projectStatement = $pdo->prepare("SELECT project_id, project_name, client_business_type FROM discovery_projects WHERE status = 'active' AND project_id IN ({$placeholders}) ORDER BY project_name");
+            $projectStatement->execute($clientIds);
+            $projects = $projectStatement->fetchAll();
+        }
+        $statement = $pdo->prepare("SELECT s.*, u.username AS owner_username, u.email AS owner_email, COALESCE(p.project_name, s.client_id) AS project_name, COALESCE(p.client_business_type, s.client_business_type, 'unclassified') AS business_type FROM discovery_submissions s LEFT JOIN discovery_users u ON u.id = s.owner_user_id LEFT JOIN discovery_projects p ON p.project_id = s.client_id WHERE s.owner_user_id = :owner_user_id ORDER BY s.updated_at DESC, s.id DESC LIMIT 100");
         $statement->execute([':owner_user_id' => (int)$principal['user_id']]);
     }
     $submissions = $statement->fetchAll();
@@ -111,13 +120,13 @@ $lede = $isAdmin
 header('Content-Type: text/html; charset=utf-8');
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title><?= resultsEscape($title) ?> · oobCREATIVE</title><style><?= resultsCss() ?></style></head><body>
-<header class="topbar"><div class="topbar-inner"><div class="brand">oobCREATIVE · Discovery</div><div class="top-actions"><span class="account-name">Signed in as <?= resultsEscape((string)$principal['username']) ?></span><?php if ($isAdmin): ?><a class="button secondary" href="/discovery/results/invitations/">Users & access</a><?php endif; ?><a class="button secondary" href="https://discovery.oobcreative.com/clinician/">Start new response</a><form method="post"><input type="hidden" name="csrf" value="<?= resultsEscape(oobCsrfToken()) ?>"><input type="hidden" name="action" value="logout"><button type="submit">Sign out</button></form></div></div></header>
+<header class="topbar"><div class="topbar-inner"><div class="brand">oobCREATIVE · Discovery</div><div class="top-actions"><span class="account-name">Signed in as <?= resultsEscape((string)$principal['username']) ?></span><?php if ($isAdmin): ?><a class="button secondary" href="/discovery/results/invitations/">Projects, users & access</a><?php endif; ?><?php if (!$isAdmin): foreach ($projects as $project): ?><a class="button secondary" href="https://discovery.oobcreative.com/<?= rawurlencode((string)$project['project_id']) ?>/">Start <?= resultsEscape((string)$project['project_name']) ?> response</a><?php endforeach; endif; ?><form method="post"><input type="hidden" name="csrf" value="<?= resultsEscape(oobCsrfToken()) ?>"><input type="hidden" name="action" value="logout"><button type="submit">Sign out</button></form></div></div></header>
 <main class="page"><p class="eyebrow"><?= $isAdmin ? 'Full Admin' : 'Client account' ?></p><h1><?= resultsEscape($title) ?></h1><p class="lede"><?= resultsEscape($lede) ?></p>
-<?php if ($isAdmin && $filterUser): ?><p><a href="/discovery/results/">← All submissions</a> · <a href="/discovery/results/invitations/">Users & access</a></p><?php endif; ?>
+<?php if ($isAdmin && $filterUser): ?><p><a href="/discovery/results/">← All submissions</a> · <a href="/discovery/results/invitations/">Projects, users & access</a></p><?php endif; ?>
 <div class="rule-note"><strong>Access rule:</strong> Full Admins can review every response. Clients can review and edit only submissions owned by their own account.</div>
 <p class="response-count"><?= count($submissions) ?> response<?= count($submissions) === 1 ? '' : 's' ?> available</p>
 <?php if ($submissions === []): ?><div class="empty"><?= $isAdmin && $filterUser ? 'This user has no owned submissions yet.' : 'No Discovery responses are available for this account yet.' ?></div><?php else: ?><div class="response-list">
 <?php foreach ($submissions as $row): $name = trim((string)$row['respondent_name']) ?: 'Unnamed response'; ?>
-<article class="response-card"><div><h2><?= resultsEscape($name) ?></h2><p class="meta"><?= resultsEscape((string)($row['respondent_email'] ?: 'No respondent email')) ?> · <?= resultsEscape(resultsFormatDate((string)($row['updated_at'] ?: $row['created_at']), $timezone)) ?></p><span class="client"><?= resultsEscape((string)$row['client_id']) ?></span><?php if ($isAdmin): ?><p class="meta">Owner: <?= $row['owner_username'] ? resultsEscape((string)$row['owner_username']) . ' · ' . resultsEscape((string)$row['owner_email']) : 'Unassigned historical submission' ?></p><?php endif; ?></div><div class="card-actions"><a class="button" href="/discovery/response/?submission_id=<?= rawurlencode((string)$row['submission_id']) ?>">Review response</a><?php if (!$isAdmin): ?><a class="button secondary" href="https://discovery.oobcreative.com/clinician/?edit=<?= rawurlencode((string)$row['submission_id']) ?>">Edit response</a><?php endif; ?></div></article>
+<article class="response-card"><div><h2><?= resultsEscape($name) ?></h2><p class="meta"><?= resultsEscape((string)$row['project_name']) ?> · <?= resultsEscape((string)$row['business_type']) ?> · <?= resultsEscape(resultsFormatDate((string)($row['updated_at'] ?: $row['created_at']), $timezone)) ?></p><?php if ($row['respondent_email']): ?><p class="meta"><?= resultsEscape((string)$row['respondent_email']) ?></p><?php endif; ?><?php if ($isAdmin): ?><p class="meta">Owner: <?= $row['owner_username'] ? resultsEscape((string)$row['owner_username']) . ' · ' . resultsEscape((string)$row['owner_email']) : 'Unassigned historical submission' ?></p><?php endif; ?></div><div class="card-actions"><a class="button" href="/discovery/response/?submission_id=<?= rawurlencode((string)$row['submission_id']) ?>">Review response</a><?php if (!$isAdmin): ?><a class="button secondary" href="https://discovery.oobcreative.com/<?= rawurlencode((string)$row['client_id']) ?>/?edit=<?= rawurlencode((string)$row['submission_id']) ?>">Edit response</a><?php endif; ?></div></article>
 <?php endforeach; ?></div><?php endif; ?>
 </main></body></html>
