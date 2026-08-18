@@ -5,6 +5,7 @@ $home = rtrim((string)(getenv('HOME') ?: '/home1/reaqfvmy'), '/');
 $localLibrary = dirname(__DIR__, 4) . '/lib';
 $library = is_dir($localLibrary) ? $localLibrary : $home . '/oob-discovery-lib';
 require_once $library . '/discovery-auth.php';
+require_once $library . '/discovery-account-mail.php';
 require_once $library . '/discovery-ui.php';
 
 oobApplySecurityHeaders();
@@ -63,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $passwordError = oobPasswordError($password);
             if ($passwordError !== null) throw new OobAuthException($passwordError, 400, 'password_invalid');
             $created = oobCreateInvitedUser($pdo, $token, $email, $username, $password);
-            oobSendVerificationEmail($accessConfig, $created['user'], (string)$created['token']);
+            oobSendAccountLinkEmail($accessConfig, $created['user'], (string)$created['token'], 'verify');
             $body = '<p class="notice notice-success" role="status"><strong>Check your email.</strong><br>Use the verification link we sent to finish your account and open the results.</p>';
             oobRenderAccountPage('Verify your email', 'Account created', 'Your invitation is connected to your new account.', $body);
         } catch (OobAuthException $exception) {
