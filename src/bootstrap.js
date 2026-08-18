@@ -27,6 +27,11 @@ function fieldMapFromPayload(payload) {
   return fields;
 }
 
+function savedDraft() {
+  try { return JSON.parse(localStorage.getItem(systemConfig.storageKey) || "null"); }
+  catch { return null; }
+}
+
 async function accountSession() {
   try {
     const response = await originalFetch(`${accountEndpoint}?mode=session`, {
@@ -42,6 +47,14 @@ async function accountSession() {
 }
 
 const session = await accountSession();
+const priorDraft = savedDraft();
+if (!editingSubmissionId && priorDraft?.editSubmissionId) {
+  if (session.authenticated) {
+    window.location.replace(`?edit=${encodeURIComponent(priorDraft.editSubmissionId)}`);
+    throw new Error("Resuming saved edit.");
+  }
+  localStorage.removeItem(systemConfig.storageKey);
+}
 
 if (editingSubmissionId) {
   if (!session.authenticated) {
@@ -61,6 +74,7 @@ if (editingSubmissionId) {
   const payload = result.payload;
   const draft = {
     submissionId: payload.submissionId,
+    editSubmissionId: payload.submissionId,
     startedAt: payload.timing?.startedAt || new Date().toISOString(),
     fields: fieldMapFromPayload(payload),
     patterns: Array.isArray(payload.patientPatterns) ? payload.patientPatterns : [],
