@@ -8,9 +8,13 @@ const accountPanel = document.querySelector("#account-panel");
 const signInForm = document.querySelector("#discovery-login-form");
 const loginStatus = document.querySelector("#login-status");
 const accountSummary = document.querySelector("#account-summary");
-const accountActions = document.querySelector("#account-actions");
 const projectList = document.querySelector("#project-list");
-const signOutButton = document.querySelector("#sign-out-button");
+const headerSignedOut = document.querySelector("#header-signed-out");
+const headerSignedIn = document.querySelector("#header-signed-in");
+const headerAccountName = document.querySelector("#header-account-name");
+const headerAccountRole = document.querySelector("#header-account-role");
+const headerAccountActions = document.querySelector("#header-account-actions");
+const signOutButton = document.querySelector("#header-sign-out-button");
 
 function esc(value) {
   return String(value ?? "")
@@ -35,10 +39,14 @@ function setLoginStatus(message, type = "") {
 function renderSignedOut() {
   signInPanel.hidden = false;
   accountPanel.hidden = true;
+  headerSignedOut.hidden = false;
+  headerSignedIn.hidden = true;
   signInForm.reset();
   accountSummary.innerHTML = "";
-  accountActions.innerHTML = "";
   projectList.innerHTML = "";
+  headerAccountName.textContent = "";
+  headerAccountRole.textContent = "";
+  headerAccountActions.innerHTML = "";
 }
 
 function renderSignedIn(session) {
@@ -46,12 +54,16 @@ function renderSignedIn(session) {
   const projects = Array.isArray(session.projects) ? session.projects : [];
   signInPanel.hidden = true;
   accountPanel.hidden = false;
+  headerSignedOut.hidden = true;
+  headerSignedIn.hidden = false;
+
+  headerAccountName.textContent = user.username;
+  headerAccountRole.textContent = user.accountType;
+  const actions = [`<a class="button" href="${resultsUrl}">${user.systemAdmin ? "Responses" : "My responses"}</a>`];
+  if (user.systemAdmin) actions.push(`<a class="button secondary" href="${adminUrl}">Projects, users &amp; access</a>`);
+  headerAccountActions.innerHTML = actions.join("");
 
   accountSummary.innerHTML = `<p class="eyebrow">${esc(user.accountType)}</p><h1>Welcome, ${esc(user.username)}.</h1><p class="lede">Signed in as ${esc(user.email)}. Your Discovery options are based on this account.</p>`;
-
-  const actions = [`<a class="button" href="${resultsUrl}">${user.systemAdmin ? "View all responses" : "My responses"}</a>`];
-  if (user.systemAdmin) actions.push(`<a class="button secondary" href="${adminUrl}">Projects, users &amp; access</a>`);
-  accountActions.innerHTML = actions.join("");
 
   if (!projects.length) {
     projectList.innerHTML = `<article class="discovery-card muted-card"><div><p class="card-kicker">No active projects</p><h3>No project access is currently assigned.</h3><p>Ask a Full Admin if you expected to see a project here.</p></div></article>`;
