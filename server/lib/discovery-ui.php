@@ -47,6 +47,14 @@ function oobRenderAccountPage(string $title, string $eyebrow, string $lede, stri
 {
     http_response_code($status);
     header('Content-Type: text/html; charset=utf-8');
+    $privateHeader = $privateHeader || strcasecmp(trim($eyebrow), 'Full Admin') === 0;
+    if ($privateHeader && $headerActions === '') {
+        $csrf = function_exists('oobCsrfToken') ? oobEscape(oobCsrfToken()) : '';
+        $headerActions = '<a class="button" href="/discovery/results/">Responses</a><a class="button button-secondary" href="/discovery/results/invitations/">Projects, users &amp; access</a>';
+        if ($csrf !== '') {
+            $headerActions .= '<form method="post" action="/discovery/results/"><input type="hidden" name="csrf" value="' . $csrf . '"><input type="hidden" name="action" value="logout"><button type="submit">Sign out</button></form>';
+        }
+    }
     $headerClass = $privateHeader ? 'account-header private' : 'account-header';
     $context = $headerActions !== '' ? $headerActions : '<span class="header-context">Private account</span>';
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>' . oobEscape($title) . ' · oobCREATIVE</title><style>' . oobAccountCss() . '</style></head><body>';
