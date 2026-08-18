@@ -19,6 +19,7 @@ jobs:
         run: |
           node --check src/app.js
           node --check src/bootstrap.js
+          node --check src/home-login.js
           node --check src/system-config.js
           node --check config/clinician-core.js
           node --check config/varetto.js
@@ -59,3 +60,4 @@ jobs:
           find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           php server/tests/auth-contract.php
           php server/tests/runtime-config-contract.php
+          php server/tests/home-session-contract.php

@@ -3,9 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="oobCREATIVE Discovery — private project-centered discovery experiences.">
-  <title>oobCREATIVE Discovery</title>
+  <meta name="description" content="Sign in to your oobCREATIVE Discovery account and open the projects and responses available to you.">
+  <title>Discovery Sign In | oobCREATIVE</title>
   <link rel="stylesheet" href="./assets/styles.css?v=0.2.2">
+  <style>
+    .account-entry{padding:clamp(4rem,8vw,7rem) 0 5rem}.entry-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:clamp(2rem,6vw,5rem);align-items:start}.entry-copy h1,.account-summary h1{max-width:12ch}.login-card{padding:clamp(1.5rem,3vw,2.5rem);border:1px solid #111}.login-form{display:grid;gap:.7rem}.login-form label{font-weight:700;margin-top:.35rem}.login-form input{width:100%;padding:.85rem;border:1px solid #999;background:#fff;color:#111}.login-form small{color:var(--muted)}.login-form .button{margin-top:.5rem}.login-status{margin:1rem 0 0;padding:1rem;border-left:5px solid #111;background:var(--subtle)}.login-status.error{border-color:var(--danger);color:var(--danger)}.entry-note{margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--line)}.account-panel{padding:clamp(4rem,8vw,7rem) 0 6rem}.account-toolbar{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:3rem}.account-actions{display:flex;gap:.75rem;flex-wrap:wrap}.project-heading{margin:4rem 0 1.5rem}.project-heading h2{margin-bottom:.5rem}.project-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(1.25rem,3vw,2rem)}[hidden]{display:none!important}@media(max-width:760px){.entry-grid,.project-grid{grid-template-columns:1fr}.account-toolbar{align-items:flex-start;flex-direction:column}.account-actions .button{width:100%}}
+  </style>
 </head>
 <body class="hub-page">
   <a class="skip-link" href="#main-content">Skip to content</a>
@@ -15,32 +18,56 @@
         <img src="https://skills.oobcreative.com/branding/Mark-black.svg" alt="">
         <span class="brand-copy"><span class="brand-name"><span>oob</span>CREATIVE</span><span class="brand-sub">Discovery</span></span>
       </a>
+      <span class="header-context">Private account</span>
     </div>
   </header>
+
   <main id="main-content" class="hub-shell">
-    <section class="hero compact-hero">
-      <p class="eyebrow">Go deeper, not louder.</p>
-      <h1>Discovery starts with the project.</h1>
-      <p class="lede">Each Discovery project connects the client, the people participating, the information they contribute, and the business context that can help oobCREATIVE prepare better questions and make more informed downstream decisions.</p>
-      <div class="actions">
-        <a class="button" href="https://api.oobcreative.com/discovery/results/">Open Discovery workspace</a>
+    <section id="sign-in-panel" class="account-entry">
+      <div class="entry-grid">
+        <div class="entry-copy">
+          <p class="eyebrow">Your Discovery workspace</p>
+          <h1>Sign in and pick up where you left off.</h1>
+          <p class="lede">Your account determines which projects, responses, and administrative tools you can access. Use the same email address or username and password you created for Discovery.</p>
+        </div>
+
+        <section class="login-card" aria-labelledby="login-heading">
+          <p class="eyebrow">Account sign in</p>
+          <h2 id="login-heading">Open Discovery</h2>
+          <form id="discovery-login-form" class="login-form">
+            <label for="identifier">Email address or username</label>
+            <input id="identifier" name="identifier" type="text" autocomplete="username" required autofocus>
+            <small>Either one signs into the same Discovery account.</small>
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <button class="button" type="submit">Sign in</button>
+          </form>
+          <p id="login-status" class="login-status" role="status" aria-live="polite" hidden></p>
+          <p><a id="forgot-link" href="https://api.oobcreative.com/discovery/account/forgot/">Trouble signing in?</a></p>
+          <div class="entry-note">
+            <p><strong>First time here?</strong></p>
+            <p>Your invitation link is used once to create or connect your account to a project. After that, return to this page whenever you need Discovery.</p>
+          </div>
+        </section>
       </div>
     </section>
-    <section class="discovery-grid" aria-labelledby="current-projects">
-      <div class="section-heading">
-        <p class="eyebrow">Current project</p>
-        <h2 id="current-projects">Varetto Recovery</h2>
+
+    <section id="account-panel" class="account-panel" hidden>
+      <div class="account-toolbar">
+        <div id="account-summary" class="account-summary"></div>
+        <button id="sign-out-button" class="button secondary" type="button">Sign out</button>
       </div>
-      <article class="discovery-card">
-        <div>
-          <p class="card-kicker">Discovery</p>
-          <h3>Varetto Recovery</h3>
-          <p>Private audience and communication discovery for the current Varetto project.</p>
-        </div>
-        <a class="button" href="./varetto/">Open Varetto Discovery</a>
-      </article>
+      <div id="account-actions" class="account-actions"></div>
+      <div class="project-heading">
+        <p class="eyebrow">Your access</p>
+        <h2>Projects</h2>
+        <p>Only projects available to this account appear here.</p>
+      </div>
+      <div id="project-list" class="project-grid"></div>
     </section>
   </main>
+
   <footer class="site-footer">An oobCREATIVE working system. Human judgment remains part of every downstream decision.</footer>
+  <script type="module" src="./src/home-login.js?v=0.1.0"></script>
 </body>
 </html>

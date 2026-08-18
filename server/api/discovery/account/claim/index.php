@@ -20,10 +20,6 @@ try {
     oobRenderAccountPage('Access unavailable', 'Account access', 'Account access is temporarily unavailable. Try again later.', '', 503);
 }
 
-// The questionnaire lives on discovery.oobcreative.com while authenticated
-// account sessions live on api.oobcreative.com. This small JSON mode lets the
-// questionnaire link a validated submission to the signed-in account and load
-// that same owner's response for editing. It does not replace the submission API.
 $contentType = strtolower((string)($_SERVER['CONTENT_TYPE'] ?? ''));
 $apiMode = (string)($_GET['account_submission'] ?? '') === '1'
     || (string)($_GET['mode'] ?? '') === 'session'
@@ -61,12 +57,78 @@ if ($apiMode) {
         if (isset($value['timing']) && is_array($value['timing'])) unset($value['timing']['generatedAt']);
         return json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     };
+    $sessionProjects = static function (PDO $pdo, array $principal): array {
+        if ((bool)($principal['system_admin'] ?? false)) {
+            $statement = $pdo->query("SELECT project_id, project_name, client_business_type, status FROM discovery_projects WHERE status = 'active' ORDER BY project_name ASC");
+        } else {
+            $statement = $pdo->prepare("SELECT p.project_id, p.project_name, p.client_business_type, p.status FROM discovery_projects p JOIN discovery_user_clients uc ON uc.client_id = p.project_id WHERE uc.user_id = :user_id AND p.status = 'active' ORDER BY p.project_name ASC");
+            $statement->execute([':user_id' => (int)$principal['user_id']]);
+        }
+        return array_map(static fn(array $row): array => [
+            'id' => (string)$row['project_id'],
+            'name' => (string)$row['project_name'],
+            'businessType' => (string)$row['client_business_type'],
+            'status' => (string)$row['status'],
+        ], $statement->fetchAll());
+    };
+    $loginRateFile = static function (): string {
+        $directory = rtrim(sys_get_temp_dir(), '/') . '/oobdiscovery-home-login';
+        if (!is_dir($directory)) @mkdir($directory, 0700, true);
+        return $directory . '/' . hash('sha256', (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown')) . '.json';
+    };
+    $loginRateLimited = static function () use ($loginRateFile): bool {
+        $state = json_decode((string)@file_get_contents($loginRateFile()), true);
+        return is_array($state) && time() - (int)($state['started'] ?? 0) < 900 && (int)($state['attempts'] ?? 0) >= 8;
+    };
+    $recordFailedLogin = static function () use ($loginRateFile): void {
+        $file = $loginRateFile();
+        $state = json_decode((string)@file_get_contents($file), true);
+        $now = time();
+        $started = is_array($state) ? (int)($state['started'] ?? 0) : 0;
+        $attempts = is_array($state) ? (int)($state['attempts'] ?? 0) : 0;
+        if ($started === 0 || $now - $started >= 900) { $started = $now; $attempts = 0; }
+        @file_put_contents($file, json_encode(['started' => $started, 'attempts' => $attempts + 1]), LOCK_EX);
+        @chmod($file, 0600);
+    };
+    $clearLoginRate = static function () use ($loginRateFile): void {
+        $file = $loginRateFile();
+        if (is_file($file)) @unlink($file);
+    };
+
     if ($origin !== '' && $origin !== $allowedOrigin) $json(403, ['ok' => false, 'error' => 'Origin not allowed.']);
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_GET['mode'] ?? '') === 'session') {
+        $raw = file_get_contents('php://input');
+        if ($raw === false || $raw === '' || strlen($raw) > 4096) $json(400, ['ok' => false, 'error' => 'Enter your email address or username and password.']);
+        try {
+            $request = json_decode($raw, true, 16, JSON_THROW_ON_ERROR);
+        } catch (Throwable $error) {
+            $json(400, ['ok' => false, 'error' => 'Invalid sign-in request.']);
+        }
+        $action = is_array($request) ? (string)($request['action'] ?? 'login') : 'login';
+        if ($action === 'logout') {
+            oobClearAuthSession();
+            $json(200, ['ok' => true, 'authenticated' => false]);
+        }
+        if ($action !== 'login') $json(400, ['ok' => false, 'error' => 'Invalid sign-in request.']);
+        if ($loginRateLimited()) $json(429, ['ok' => false, 'error' => 'Too many sign-in attempts. Wait a few minutes and try again.']);
+        $identifier = trim((string)($request['identifier'] ?? ''));
+        $password = (string)($request['password'] ?? '');
+        if ($identifier === '' || $password === '') $json(400, ['ok' => false, 'error' => 'Enter your email address or username and password.']);
+        try {
+            oobAccountLogin($pdo, $identifier, $password);
+            $clearLoginRate();
+        } catch (Throwable $error) {
+            $recordFailedLogin();
+            $json(401, ['ok' => false, 'error' => 'The email address, username, or password was not recognized.']);
+        }
+    }
 
     $principal = oobCurrentPrincipal($accessConfig, $pdo);
     $accountPrincipal = $principal && ($principal['mode'] ?? '') === 'account' && (int)($principal['user_id'] ?? 0) > 0;
 
-    if ($_SERVER['REQUEST_METHOD'] === 'GET' && (string)($_GET['mode'] ?? '') === 'session') {
+    if ((string)($_GET['mode'] ?? '') === 'session') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET' && $_SERVER['REQUEST_METHOD'] !== 'POST') $json(405, ['ok' => false, 'error' => 'Method not allowed.']);
         $json(200, [
             'ok' => true,
             'authenticated' => $accountPrincipal,
@@ -75,7 +137,9 @@ if ($apiMode) {
                 'username' => (string)$principal['username'],
                 'email' => (string)$principal['email'],
                 'systemAdmin' => (bool)$principal['system_admin'],
+                'accountType' => (bool)$principal['system_admin'] ? 'Full Admin' : 'Client',
             ] : null,
+            'projects' => $accountPrincipal ? $sessionProjects($pdo, $principal) : [],
         ]);
     }
 
@@ -180,12 +244,12 @@ if ($state !== 'active') {
         'revoked' => 'This invitation was revoked. Ask the sender for a new link.',
         default => 'This invitation link is invalid.',
     };
-    $body = '<p class="notice notice-error" role="alert">' . oobEscape($message) . '</p><div class="actions"><a class="button" href="/discovery/results/">Sign in</a></div>';
-    oobRenderAccountPage('Invitation unavailable', 'Private discovery results', 'A current invitation is required to create or extend an account.', $body, $state === 'invalid' ? 404 : 410);
+    $body = '<p class="notice notice-error" role="alert">' . oobEscape($message) . '</p><div class="actions"><a class="button" href="https://discovery.oobcreative.com/">Sign in</a></div>';
+    oobRenderAccountPage('Invitation unavailable', 'Discovery account', 'A current invitation is required to create or extend an account.', $body, $state === 'invalid' ? 404 : 410);
 }
 
 if (!oobAccountAuthEnabled($accessConfig)) {
-    oobRenderAccountPage('Invitation not active yet', 'Private discovery results', 'The new account system is being configured. Ask the sender to let you know when this link is ready.', '<p class="notice notice-info">No account has been created and this invitation has not been used.</p>', 503);
+    oobRenderAccountPage('Invitation not active yet', 'Discovery account', 'The account system is being configured. Ask the sender to let you know when this link is ready.', '<p class="notice notice-info">No account has been created and this invitation has not been used.</p>', 503);
 }
 
 $error = null;
@@ -239,4 +303,4 @@ $body = $notice . '<div class="split">'
     . '<label for="password_confirmation">Confirm password</label><input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><button type="submit">Create Client account</button></form></section>'
     . '<section class="card"><p class="eyebrow">Already registered</p><h2>Use your existing account</h2><p class="help">Sign in to connect this invitation to your existing Discovery account. Use either the email address on the account or the username you created.</p><form method="post" class="form"><input type="hidden" name="csrf" value="' . $csrf . '"><input type="hidden" name="token" value="' . $safeToken . '"><input type="hidden" name="action" value="existing">'
     . '<label for="identifier">Email address or username</label><input id="identifier" name="identifier" type="text" autocomplete="username" required><small>Either one signs into the same account.</small><label for="existing_password">Password</label><input id="existing_password" name="existing_password" type="password" autocomplete="current-password" required><button type="submit">Sign in and connect invitation</button></form><p class="help"><a href="/discovery/account/forgot/">Trouble signing in?</a></p></section></div>';
-oobRenderAccountPage('Your invitation', 'Private discovery results', 'Invitations create Client accounts. Clients can view and edit only the Discovery responses they submit through their own account.', $body, $error ? 400 : 200);
+oobRenderAccountPage('Your invitation', 'Discovery account', 'Invitations create Client accounts. Clients can view and edit only the Discovery responses they submit through their own account.', $body, $error ? 400 : 200);
