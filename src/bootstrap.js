@@ -5,6 +5,7 @@ const accountEndpoint = "https://api.oobcreative.com/discovery/account/claim/";
 const params = new URLSearchParams(window.location.search);
 const editingSubmissionId = params.get("edit") || "";
 const originalFetch = window.fetch.bind(window);
+const originalStorageSetItem = Storage.prototype.setItem;
 
 function fieldMapFromPayload(payload) {
   const services = payload.services || {};
@@ -81,6 +82,19 @@ if (editingSubmissionId) {
     savedAt: new Date().toISOString()
   };
   localStorage.setItem(systemConfig.storageKey, JSON.stringify(draft));
+
+  // app.js owns autosave. Preserve the edit identity when it rewrites the same
+  // draft so an interrupted edit cannot later reopen as an accidental new form.
+  Storage.prototype.setItem = function (key, value) {
+    if (this === localStorage && key === systemConfig.storageKey) {
+      try {
+        const next = JSON.parse(String(value));
+        next.editSubmissionId = editingSubmissionId;
+        value = JSON.stringify(next);
+      } catch {}
+    }
+    return originalStorageSetItem.call(this, key, value);
+  };
 }
 
 window.fetch = async (input, init = {}) => {
