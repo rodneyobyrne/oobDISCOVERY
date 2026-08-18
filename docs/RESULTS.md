@@ -34,7 +34,7 @@ DISCOVERY_RESULTS_PASSWORD_HASH
 
 The deploy workflow writes those values to `/home1/reaqfvmy/oob-discovery-results.php` with mode `600`. The file is outside the public web root and is never committed. GitHub intentionally never redisplays a saved secret; an empty update field does not mean its stored value is empty.
 
-See [`AUTH.md`](AUTH.md) for the new invitation/account flow, Supabase setup, email templates, deployment secrets, and safe retirement sequence for the shared login.
+See [`AUTH.md`](AUTH.md) for the Bluehost account flow, Google Workspace SMTP setup, deployment secrets, production test, and safe retirement sequence for the shared login.
 
 ## Export contract
 

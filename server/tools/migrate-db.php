@@ -39,9 +39,10 @@ SQL);
     $pdo->exec(<<<'SQL'
 CREATE TABLE IF NOT EXISTS discovery_users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  auth_user_id CHAR(36) NOT NULL UNIQUE,
+  auth_user_id CHAR(36) NULL UNIQUE,
   email VARCHAR(254) NOT NULL UNIQUE,
   username VARCHAR(32) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'pending',
   is_system_admin TINYINT(1) NOT NULL DEFAULT 0,
   email_verified_at DATETIME NULL,
@@ -50,6 +51,13 @@ CREATE TABLE IF NOT EXISTS discovery_users (
   INDEX idx_discovery_users_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 SQL);
+
+    $columnCheck = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = :schema_name AND TABLE_NAME = :table_name AND COLUMN_NAME = :column_name');
+    $columnCheck->execute([':schema_name' => (string)($db['name'] ?? ''), ':table_name' => 'discovery_users', ':column_name' => 'password_hash']);
+    if ((int)$columnCheck->fetchColumn() === 0) {
+        $pdo->exec('ALTER TABLE discovery_users ADD COLUMN password_hash VARCHAR(255) NULL AFTER username');
+    }
+    $pdo->exec('ALTER TABLE discovery_users MODIFY auth_user_id CHAR(36) NULL');
 
     $pdo->exec(<<<'SQL'
 CREATE TABLE IF NOT EXISTS discovery_user_clients (
@@ -80,6 +88,21 @@ CREATE TABLE IF NOT EXISTS discovery_invitations (
   INDEX idx_discovery_invitations_client (client_id),
   INDEX idx_discovery_invitations_expiry (expires_at),
   CONSTRAINT fk_discovery_invitations_user FOREIGN KEY (claimed_by_user_id) REFERENCES discovery_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+
+    $pdo->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS discovery_account_tokens (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  purpose VARCHAR(20) NOT NULL,
+  token_hash CHAR(64) NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_discovery_account_tokens_user_purpose (user_id, purpose),
+  INDEX idx_discovery_account_tokens_expiry (expires_at),
+  CONSTRAINT fk_discovery_account_tokens_user FOREIGN KEY (user_id) REFERENCES discovery_users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 SQL);
 

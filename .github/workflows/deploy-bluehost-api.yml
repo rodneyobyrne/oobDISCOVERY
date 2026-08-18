@@ -44,17 +44,21 @@ jobs:
           } > ~/.ssh/config
           chmod 600 ~/.ssh/config
 
+      - name: Install private PHP dependencies
+        run: composer install --working-dir=server --no-dev --prefer-dist --optimize-autoloader --no-interaction
+
       - name: Build private results access config
         env:
           DISCOVERY_RESULTS_VIEWER: ${{ secrets.DISCOVERY_RESULTS_VIEWER }}
           DISCOVERY_RESULTS_PASSWORD_HASH: ${{ secrets.DISCOVERY_RESULTS_PASSWORD_HASH }}
-          DISCOVERY_MANAGED_AUTH_ENABLED: ${{ secrets.DISCOVERY_MANAGED_AUTH_ENABLED }}
-          DISCOVERY_SUPABASE_URL: ${{ secrets.DISCOVERY_SUPABASE_URL }}
-          DISCOVERY_SUPABASE_ANON_KEY: ${{ secrets.DISCOVERY_SUPABASE_ANON_KEY }}
+          DISCOVERY_ACCOUNT_AUTH_ENABLED: ${{ secrets.DISCOVERY_ACCOUNT_AUTH_ENABLED }}
+          DISCOVERY_SMTP_USERNAME: ${{ secrets.DISCOVERY_SMTP_USERNAME }}
+          DISCOVERY_SMTP_PASSWORD: ${{ secrets.DISCOVERY_SMTP_PASSWORD }}
+          DISCOVERY_SMTP_FROM_EMAIL: ${{ secrets.DISCOVERY_SMTP_FROM_EMAIL }}
         run: |
           test -n "$DISCOVERY_RESULTS_VIEWER"
           test -n "$DISCOVERY_RESULTS_PASSWORD_HASH"
-          php -r '$enabled = filter_var(getenv("DISCOVERY_MANAGED_AUTH_ENABLED") ?: "false", FILTER_VALIDATE_BOOL); if ($enabled && (trim((string)getenv("DISCOVERY_SUPABASE_URL")) === "" || trim((string)getenv("DISCOVERY_SUPABASE_ANON_KEY")) === "")) { fwrite(STDERR, "Managed auth is enabled but Supabase secrets are missing.\n"); exit(1); } $config = ["username" => getenv("DISCOVERY_RESULTS_VIEWER"), "password_hash" => getenv("DISCOVERY_RESULTS_PASSWORD_HASH"), "timezone" => "America/Denver", "managed_auth" => ["enabled" => $enabled, "supabase_url" => getenv("DISCOVERY_SUPABASE_URL") ?: "", "supabase_anon_key" => getenv("DISCOVERY_SUPABASE_ANON_KEY") ?: "", "site_url" => "https://api.oobcreative.com"]]; file_put_contents("/tmp/oob-discovery-results.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n");'
+          php -r '$enabled = filter_var(getenv("DISCOVERY_ACCOUNT_AUTH_ENABLED") ?: "false", FILTER_VALIDATE_BOOL); $smtp = ["host" => "smtp.gmail.com", "port" => 587, "username" => getenv("DISCOVERY_SMTP_USERNAME") ?: "", "password" => getenv("DISCOVERY_SMTP_PASSWORD") ?: "", "from_email" => getenv("DISCOVERY_SMTP_FROM_EMAIL") ?: "", "from_name" => "oobCREATIVE Discovery"]; if ($enabled && (trim($smtp["username"]) === "" || trim($smtp["password"]) === "" || !filter_var($smtp["from_email"], FILTER_VALIDATE_EMAIL))) { fwrite(STDERR, "Invited accounts are enabled but Google SMTP secrets are missing or invalid.\n"); exit(1); } $config = ["username" => getenv("DISCOVERY_RESULTS_VIEWER"), "password_hash" => getenv("DISCOVERY_RESULTS_PASSWORD_HASH"), "timezone" => "America/Denver", "account_auth" => ["enabled" => $enabled, "site_url" => "https://api.oobcreative.com", "vendor_autoload" => "/home1/reaqfvmy/oob-discovery-vendor/autoload.php", "smtp" => $smtp]]; file_put_contents("/tmp/oob-discovery-results.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n");'
           php -l /tmp/oob-discovery-results.php
 
       - name: Deploy API endpoints and results workspace
@@ -63,8 +67,9 @@ jobs:
           BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
         run: |
           test -n "$BLUEHOST_SSH_USER"
-          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'mkdir -p /home1/reaqfvmy/oob-discovery-lib /home1/reaqfvmy/api.oobcreative.com/discovery/submit /home1/reaqfvmy/api.oobcreative.com/discovery/results/invitations /home1/reaqfvmy/api.oobcreative.com/discovery/account/claim /home1/reaqfvmy/api.oobcreative.com/discovery/account/forgot /home1/reaqfvmy/api.oobcreative.com/discovery/account/confirm /home1/reaqfvmy/api.oobcreative.com/discovery/account/reset'
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'mkdir -p /home1/reaqfvmy/oob-discovery-lib /home1/reaqfvmy/oob-discovery-vendor /home1/reaqfvmy/api.oobcreative.com/discovery/submit /home1/reaqfvmy/api.oobcreative.com/discovery/results/invitations /home1/reaqfvmy/api.oobcreative.com/discovery/account/claim /home1/reaqfvmy/api.oobcreative.com/discovery/account/forgot /home1/reaqfvmy/api.oobcreative.com/discovery/account/confirm /home1/reaqfvmy/api.oobcreative.com/discovery/account/reset'
           scp server/lib/*.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-lib/"
+          scp -r server/vendor/* "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-vendor/"
           scp server/api/discovery/submit/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/submit/index.php"
           scp server/api/discovery/results/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/results/index.php"
           scp server/api/discovery/results/invitations/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/results/invitations/index.php"
@@ -98,6 +103,7 @@ jobs:
             chmod 600 /home1/reaqfvmy/oob-discovery-config.php /home1/reaqfvmy/oob-discovery-results.php /home1/reaqfvmy/oob-discovery-lib/*.php &&
             test "$(stat -c %a /home1/reaqfvmy/oob-discovery-config.php)" = "600" &&
             test "$(stat -c %a /home1/reaqfvmy/oob-discovery-results.php)" = "600" &&
+            test -f /home1/reaqfvmy/oob-discovery-vendor/autoload.php &&
             find /home1/reaqfvmy/oob-discovery-lib /home1/reaqfvmy/api.oobcreative.com/discovery -type f -name "*.php" > /tmp/oob-discovery-php-files &&
             while IFS= read -r file; do php -l "$file" || exit 1; done < /tmp/oob-discovery-php-files &&
             rm -f /tmp/oob-discovery-php-files &&

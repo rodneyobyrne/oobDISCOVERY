@@ -18,11 +18,11 @@ try {
     $probe = bin2hex(random_bytes(16));
     $pdo->beginTransaction();
     try {
-        $user = $pdo->prepare("INSERT INTO discovery_users (auth_user_id, email, username, status) VALUES (:auth_user_id, :email, :username, 'pending')");
+        $user = $pdo->prepare("INSERT INTO discovery_users (email, username, password_hash, status) VALUES (:email, :username, :password_hash, 'pending')");
         $user->execute([
-            ':auth_user_id' => '00000000-0000-4000-8000-' . substr($probe, 0, 12),
             ':email' => 'deployment-' . $probe . '@example.invalid',
             ':username' => 'deploy_' . substr($probe, 0, 20),
+            ':password_hash' => password_hash($probe, PASSWORD_DEFAULT),
         ]);
         $userId = (int)$pdo->lastInsertId();
         $invitation = $pdo->prepare('INSERT INTO discovery_invitations (token_hash, client_id, client_label, role, expires_at, created_by) VALUES (:token_hash, :client_id, :client_label, :role, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), :created_by)');
@@ -35,6 +35,8 @@ try {
         ]);
         $access = $pdo->prepare('INSERT INTO discovery_user_clients (user_id, client_id, role) VALUES (:user_id, :client_id, :role)');
         $access->execute([':user_id' => $userId, ':client_id' => 'deployment-check', ':role' => 'viewer']);
+        $accountToken = $pdo->prepare("INSERT INTO discovery_account_tokens (user_id, purpose, token_hash, expires_at) VALUES (:user_id, 'verify', :token_hash, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY))");
+        $accountToken->execute([':user_id' => $userId, ':token_hash' => hash('sha256', 'account-' . $probe)]);
         $read = $pdo->prepare('SELECT COUNT(*) FROM discovery_user_clients WHERE user_id = :user_id');
         $read->execute([':user_id' => $userId]);
         if ((int)$read->fetchColumn() !== 1) throw new RuntimeException('Account access probe was not readable.');
@@ -42,12 +44,15 @@ try {
         if ($pdo->inTransaction()) $pdo->rollBack();
     }
 
-    if (oobManagedAuthEnabled($accessConfig) && !extension_loaded('curl')) {
-        throw new RuntimeException('The cURL extension is required for managed authentication.');
+    if (oobAccountAuthEnabled($accessConfig) && !class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+        require_once oobMailerAutoloadPath($accessConfig);
     }
-    fwrite(STDOUT, oobManagedAuthEnabled($accessConfig)
-        ? "Account storage and managed-auth prerequisites OK\n"
-        : "Account storage OK; managed auth is disabled\n");
+    if (oobAccountAuthEnabled($accessConfig) && !class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+        throw new RuntimeException('PHPMailer is required for account email.');
+    }
+    fwrite(STDOUT, oobAccountAuthEnabled($accessConfig)
+        ? "Account storage and SMTP prerequisites OK\n"
+        : "Account storage OK; invited accounts are disabled\n");
     exit(0);
 } catch (PDOException $error) {
     $mysqlCode = isset($error->errorInfo[1]) ? (int)$error->errorInfo[1] : 0;

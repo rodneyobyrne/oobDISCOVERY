@@ -13,20 +13,12 @@ oobStartDiscoverySession();
 try {
     [$databaseConfig, $accessConfig] = oobLoadRuntimeConfig();
     $pdo = oobDatabaseConnection($databaseConfig);
-    $tokenHash = trim((string)($_GET['token_hash'] ?? ''));
-    $type = trim((string)($_GET['type'] ?? ''));
-    if ($tokenHash === '' || !in_array($type, ['signup', 'email', 'recovery'], true)) {
+    $token = trim((string)($_GET['token'] ?? ''));
+    if ($token === '') {
         throw new OobAuthException('This verification link is invalid.', 400, 'verification_invalid');
     }
-    $response = oobSupabaseVerify($accessConfig, $tokenHash, $type);
-    $authUser = oobExtractAuthUser($response);
-    if (!$authUser) throw new OobAuthException('This verification link could not be completed.', 400, 'verification_incomplete');
-    oobStoreManagedSession($response);
-    if ($type === 'recovery') {
-        $_SESSION['password_recovery'] = true;
-        oobRedirect('/discovery/account/reset/');
-    }
-    oobActivateVerifiedUser($pdo, $authUser);
+    $user = oobVerifyAccount($pdo, $token);
+    oobStoreAccountSession($user);
     oobRedirect('/discovery/results/');
 } catch (OobAuthException $error) {
     $body = '<p class="notice notice-error" role="alert">' . oobEscape($error->getMessage()) . '</p><div class="actions"><a class="button" href="/discovery/results/">Return to sign in</a></div>';

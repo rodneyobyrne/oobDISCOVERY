@@ -11,7 +11,8 @@ if (!oobIsSecureRequest()) oobRenderAccountPage('Secure connection required', 'P
 oobStartDiscoverySession();
 
 try {
-    [, $accessConfig] = oobLoadRuntimeConfig();
+    [$databaseConfig, $accessConfig] = oobLoadRuntimeConfig();
+    $pdo = oobDatabaseConnection($databaseConfig);
 } catch (Throwable $error) {
     oobRenderAccountPage('Access unavailable', 'Password reset', 'Password reset is temporarily unavailable.', '', 503);
 }
@@ -21,7 +22,7 @@ $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!oobValidCsrf()) {
         $error = 'Your session expired. Refresh the page and try again.';
-    } elseif (!oobManagedAuthEnabled($accessConfig)) {
+    } elseif (!oobAccountAuthEnabled($accessConfig)) {
         $error = 'Password reset is not enabled yet.';
     } else {
         $email = strtolower(trim((string)($_POST['email'] ?? '')));
@@ -29,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Enter a valid email address.';
         } else {
             try {
-                oobSupabaseRecover($accessConfig, $email);
+                oobAccountHelpRequest($pdo, $accessConfig, $email);
             } catch (Throwable $ignored) {
                 // Keep this response identical so account existence is not disclosed.
             }
@@ -39,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($sent) {
-    $body = '<p class="notice notice-success" role="status">If that email belongs to an account, a password-reset link is on its way.</p><div class="actions"><a class="button" href="/discovery/results/">Return to sign in</a></div>';
+    $body = '<p class="notice notice-success" role="status">If that email belongs to an account, the appropriate verification or password-reset link is on its way.</p><div class="actions"><a class="button" href="/discovery/results/">Return to sign in</a></div>';
 } else {
     $body = ($error ? '<p class="notice notice-error" role="alert">' . oobEscape($error) . '</p>' : '')
         . '<form method="post" class="form"><input type="hidden" name="csrf" value="' . oobEscape(oobCsrfToken()) . '"><label for="email">Account email</label><input id="email" name="email" type="email" autocomplete="email" maxlength="254" required autofocus><button type="submit">Send reset link</button></form><div class="actions"><a class="button button-secondary" href="/discovery/results/">Return to sign in</a></div>';

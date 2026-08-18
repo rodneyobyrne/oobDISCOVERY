@@ -39,5 +39,7 @@ jobs:
 
       - name: Validate PHP
         run: |
+          composer validate --working-dir=server --no-check-lock
+          composer install --working-dir=server --no-dev --prefer-dist --no-interaction
           find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
           php server/tests/auth-contract.php

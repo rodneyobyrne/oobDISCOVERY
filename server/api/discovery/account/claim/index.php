@@ -33,7 +33,7 @@ if ($state !== 'active') {
     oobRenderAccountPage('Invitation unavailable', 'Private discovery results', 'A current invitation is required to create or extend an account.', $body, $state === 'invalid' ? 404 : 410);
 }
 
-if (!oobManagedAuthEnabled($accessConfig)) {
+if (!oobAccountAuthEnabled($accessConfig)) {
     oobRenderAccountPage('Invitation not active yet', 'Private discovery results', 'The new account system is being configured. Ask the sender to let you know when this link is ready.', '<p class="notice notice-info">No account has been created and this invitation has not been used.</p>', 503);
 }
 
@@ -48,12 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $identifier = trim((string)($_POST['identifier'] ?? ''));
                 $password = (string)($_POST['existing_password'] ?? '');
                 if ($identifier === '' || $password === '') throw new OobAuthException('Enter your email/username and password.', 400, 'fields_missing');
-                $localUser = oobManagedLogin($accessConfig, $pdo, $identifier, $password);
-                $authUser = [
-                    'id' => (string)($_SESSION['managed_auth']['user_id'] ?? ''),
-                    'email' => (string)($_SESSION['managed_auth']['email'] ?? ''),
-                ];
-                oobBindInvitation($pdo, $token, $authUser, (string)$localUser['username'], true);
+                $localUser = oobAccountLogin($pdo, $identifier, $password);
+                oobBindInvitationForUser($pdo, $token, (int)$localUser['id']);
                 oobRedirect('/discovery/results/');
             }
 
@@ -66,20 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($password !== $confirmation) throw new OobAuthException('The passwords do not match.', 400, 'password_mismatch');
             $passwordError = oobPasswordError($password);
             if ($passwordError !== null) throw new OobAuthException($passwordError, 400, 'password_invalid');
-            if (oobUsernameOrEmailExists($pdo, $username, $email)) throw new OobAuthException('That email or username is already registered. Use the existing-account form instead.', 409, 'account_exists');
-
-            $response = oobSupabaseSignUp($accessConfig, $email, $password, $username);
-            $authUser = oobExtractAuthUser($response);
-            if (!$authUser) throw new OobAuthException('The account could not be created.', 400, 'signup_incomplete');
-            if (isset($authUser['identities']) && is_array($authUser['identities']) && $authUser['identities'] === []) {
-                throw new OobAuthException('That email may already be registered. Use the existing-account form instead.', 409, 'account_exists');
-            }
-            $verified = trim((string)($response['access_token'] ?? '')) !== '';
-            oobBindInvitation($pdo, $token, $authUser, $username, $verified);
-            if ($verified) {
-                oobStoreManagedSession($response);
-                oobRedirect('/discovery/results/');
-            }
+            $created = oobCreateInvitedUser($pdo, $token, $email, $username, $password);
+            oobSendVerificationEmail($accessConfig, $created['user'], (string)$created['token']);
             $body = '<p class="notice notice-success" role="status"><strong>Check your email.</strong><br>Use the verification link we sent to finish your account and open the results.</p>';
             oobRenderAccountPage('Verify your email', 'Account created', 'Your invitation is connected to your new account.', $body);
         } catch (OobAuthException $exception) {
