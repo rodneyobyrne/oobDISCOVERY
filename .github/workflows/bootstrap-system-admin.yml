@@ -1,3 +1,4 @@
+# One-time bootstrap for the first oobCREATIVE Discovery system administrator.
 name: Bootstrap Discovery System Admin
 
 on:
