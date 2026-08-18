@@ -103,10 +103,11 @@ jobs:
           BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
           BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
         run: |
-          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'mkdir -p /home1/reaqfvmy/oob-discovery-lib /home1/reaqfvmy/oob-discovery-vendor /home1/reaqfvmy/api.oobcreative.com/discovery/submit /home1/reaqfvmy/api.oobcreative.com/discovery/results/invitations /home1/reaqfvmy/api.oobcreative.com/discovery/account/claim /home1/reaqfvmy/api.oobcreative.com/discovery/account/forgot /home1/reaqfvmy/api.oobcreative.com/discovery/account/confirm /home1/reaqfvmy/api.oobcreative.com/discovery/account/reset'
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'mkdir -p /home1/reaqfvmy/oob-discovery-lib /home1/reaqfvmy/oob-discovery-vendor /home1/reaqfvmy/api.oobcreative.com/discovery/submit /home1/reaqfvmy/api.oobcreative.com/discovery/project /home1/reaqfvmy/api.oobcreative.com/discovery/results/invitations /home1/reaqfvmy/api.oobcreative.com/discovery/account/claim /home1/reaqfvmy/api.oobcreative.com/discovery/account/forgot /home1/reaqfvmy/api.oobcreative.com/discovery/account/confirm /home1/reaqfvmy/api.oobcreative.com/discovery/account/reset'
           scp server/lib/*.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-lib/"
           scp -r server/vendor/* "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/oob-discovery-vendor/"
           scp server/api/discovery/submit/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/submit/index.php"
+          scp server/api/discovery/project/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/project/index.php"
           scp server/api/discovery/results/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/results/index.php"
           scp server/api/discovery/results/invitations/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/results/invitations/index.php"
           scp server/api/discovery/account/claim/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/account/claim/index.php"
@@ -127,6 +128,7 @@ jobs:
             test -f /home1/reaqfvmy/oob-discovery-results-db.php
             test -f /home1/reaqfvmy/oob-discovery-config.php
             test -f /home1/reaqfvmy/oob-discovery-results.php
+            test -f /home1/reaqfvmy/api.oobcreative.com/discovery/project/index.php
             chmod 600 /home1/reaqfvmy/oob-discovery-submit-config.php /home1/reaqfvmy/oob-discovery-results-db.php /home1/reaqfvmy/oob-discovery-config.php /home1/reaqfvmy/oob-discovery-results.php /home1/reaqfvmy/oob-discovery-lib/*.php
             test "$(stat -c %a /home1/reaqfvmy/oob-discovery-submit-config.php)" = "600"
             test "$(stat -c %a /home1/reaqfvmy/oob-discovery-results-db.php)" = "600"

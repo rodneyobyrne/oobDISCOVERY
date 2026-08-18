@@ -279,9 +279,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($passwordError !== null) throw new OobAuthException($passwordError, 400, 'password_invalid');
             $created = oobCreateInvitedUser($pdo, $token, $email, $username, $password);
             oobSendAccountLinkEmail($accessConfig, $created['user'], (string)$created['token'], 'verify');
-            $body = '<p class="notice notice-success" role="status"><strong>Check your email.</strong><br>Use the verification link we sent to finish your account and open the results.</p>'
-                . '<p>Your email will show both your username and account email. Either can be used to sign in, and both use the password you just created.</p>';
-            oobRenderAccountPage('Verify your email', 'Account created', 'Your invitation is connected to your new Client account.', $body);
+            $body = '<p class="notice notice-success" role="status"><strong>Check your email.</strong><br>Use the verification link we sent to finish your account and open the project workspace.</p>'
+                . '<p>Your email will show both your username and account email. Either can be used to sign in, and both use the password you just created. Once verified, project membership determines the shared responses you can review.</p>';
+            oobRenderAccountPage('Verify your email', 'Account created', 'Your invitation is connected to your new Client account and project.', $body);
         } catch (OobAuthException $exception) {
             $error = $exception->getMessage();
         } catch (Throwable $exception) {
@@ -303,4 +303,4 @@ $body = $notice . '<div class="split">'
     . '<label for="password_confirmation">Confirm password</label><input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><button type="submit">Create Client account</button></form></section>'
     . '<section class="card"><p class="eyebrow">Already registered</p><h2>Use your existing account</h2><p class="help">Sign in to connect this invitation to your existing Discovery account. Use either the email address on the account or the username you created.</p><form method="post" class="form"><input type="hidden" name="csrf" value="' . $csrf . '"><input type="hidden" name="token" value="' . $safeToken . '"><input type="hidden" name="action" value="existing">'
     . '<label for="identifier">Email address or username</label><input id="identifier" name="identifier" type="text" autocomplete="username" required><small>Either one signs into the same account.</small><label for="existing_password">Password</label><input id="existing_password" name="existing_password" type="password" autocomplete="current-password" required><button type="submit">Sign in and connect invitation</button></form><p class="help"><a href="/discovery/account/forgot/">Trouble signing in?</a></p></section></div>';
-oobRenderAccountPage('Your invitation', 'Discovery account', 'Invitations create Client accounts. Clients can view and edit only the Discovery responses they submit through their own account.', $body, $error ? 400 : 200);
+oobRenderAccountPage('Your invitation', 'Discovery account', 'This invitation connects your Client account to ' . $clientLabel . '. Project members can review all responses in the same project; only the account that submitted a response can edit it.', $body, $error ? 400 : 200);
