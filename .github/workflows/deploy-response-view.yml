@@ -1,0 +1,49 @@
+name: Deploy Discovery Response View
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "server/api/discovery/response/**"
+      - ".github/workflows/deploy-response-view.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-discovery-response-view
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Prepare SSH
+        env:
+          BLUEHOST_SSH_KEY: ${{ secrets.BLUEHOST_SSH_KEY }}
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+        run: |
+          test -n "$BLUEHOST_SSH_KEY"
+          test -n "$BLUEHOST_SSH_HOST"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$BLUEHOST_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$BLUEHOST_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Validate endpoint
+        run: php -l server/api/discovery/response/index.php
+
+      - name: Deploy source-first response view
+        env:
+          BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
+          BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
+        run: |
+          test -n "$BLUEHOST_SSH_USER"
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'mkdir -p /home1/reaqfvmy/api.oobcreative.com/discovery/response'
+          scp server/api/discovery/response/index.php "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST:/home1/reaqfvmy/api.oobcreative.com/discovery/response/index.php"
+          ssh "$BLUEHOST_SSH_USER@$BLUEHOST_SSH_HOST" 'php -l /home1/reaqfvmy/api.oobcreative.com/discovery/response/index.php'
