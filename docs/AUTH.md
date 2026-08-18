@@ -39,16 +39,22 @@ Encryption: STARTTLS
 Authentication: LOGIN
 ```
 
-Add these repository Actions secrets:
+The production deployment requires these repository Actions secrets:
 
 ```text
 DISCOVERY_SMTP_USERNAME       Primary licensed Google Workspace email
-DISCOVERY_SMTP_PASSWORD       Dedicated 16-character Google app password
-DISCOVERY_SMTP_FROM_EMAIL     discovery@oobcreative.com or the primary address
-DISCOVERY_ACCOUNT_AUTH_ENABLED
+DISCOVERY_SMTP_PASSWORD       Dedicated Google app password
 ```
 
-Keep `DISCOVERY_ACCOUNT_AUTH_ENABLED` absent or set to `false` during initial deployment. After SMTP is configured, set it to `true` and manually run the `Deploy Bluehost API` workflow. Changing a GitHub secret alone does not trigger deployment.
+This optional secret may be added when the message should come from an approved alias:
+
+```text
+DISCOVERY_SMTP_FROM_EMAIL     e.g. discovery@oobcreative.com
+```
+
+When `DISCOVERY_SMTP_FROM_EMAIL` is absent, the authenticated Workspace address is used as the sender. There is no separate account-enable secret: invited accounts are a required production feature, so the Bluehost deployment fails clearly if the two required SMTP secrets are missing or invalid. This keeps a green deployment meaningful.
+
+Changing a GitHub secret alone does not trigger deployment. Manually run **Deploy Bluehost API** after adding or replacing SMTP credentials.
 
 ## Database and deployment
 
