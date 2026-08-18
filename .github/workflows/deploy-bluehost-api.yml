@@ -84,32 +84,16 @@ jobs:
         env:
           DISCOVERY_RESULTS_VIEWER: ${{ secrets.DISCOVERY_RESULTS_VIEWER }}
           DISCOVERY_RESULTS_PASSWORD_HASH: ${{ secrets.DISCOVERY_RESULTS_PASSWORD_HASH }}
-          DISCOVERY_ACCOUNT_AUTH_ENABLED: ${{ secrets.DISCOVERY_ACCOUNT_AUTH_ENABLED }}
           DISCOVERY_SMTP_USERNAME: ${{ secrets.DISCOVERY_SMTP_USERNAME }}
           DISCOVERY_SMTP_PASSWORD: ${{ secrets.DISCOVERY_SMTP_PASSWORD }}
           DISCOVERY_SMTP_FROM_EMAIL: ${{ secrets.DISCOVERY_SMTP_FROM_EMAIL }}
         run: |
           test -n "$DISCOVERY_RESULTS_VIEWER"
           test -n "$DISCOVERY_RESULTS_PASSWORD_HASH"
+          test -n "$DISCOVERY_SMTP_USERNAME"
+          test -n "$DISCOVERY_SMTP_PASSWORD"
 
-          requested="${DISCOVERY_ACCOUNT_AUTH_ENABLED,,}"
-          smtp_ready=false
-          enabled=false
-
-          if [[ -n "$DISCOVERY_SMTP_USERNAME" && -n "$DISCOVERY_SMTP_PASSWORD" && "$DISCOVERY_SMTP_FROM_EMAIL" == *@* ]]; then
-            smtp_ready=true
-          fi
-
-          if [[ "$requested" == "true" && "$smtp_ready" == "true" ]]; then
-            enabled=true
-          elif [[ "$requested" == "true" ]]; then
-            echo "::warning::Invited accounts were requested but are being kept disabled because Google Workspace SMTP is incomplete. The shared administrator login will remain available."
-          fi
-
-          export DISCOVERY_EFFECTIVE_ACCOUNT_AUTH_ENABLED="$enabled"
-          export DISCOVERY_SMTP_READY="$smtp_ready"
-
-          php -r '$smtp = ["host" => "smtp.gmail.com", "port" => 587, "username" => getenv("DISCOVERY_SMTP_USERNAME") ?: "", "password" => getenv("DISCOVERY_SMTP_PASSWORD") ?: "", "from_email" => getenv("DISCOVERY_SMTP_FROM_EMAIL") ?: "", "from_name" => "oobCREATIVE Discovery"]; $config = ["username" => getenv("DISCOVERY_RESULTS_VIEWER"), "password_hash" => getenv("DISCOVERY_RESULTS_PASSWORD_HASH"), "timezone" => "America/Denver", "runtime" => ["smtp_ready" => getenv("DISCOVERY_SMTP_READY") === "true"], "account_auth" => ["enabled" => getenv("DISCOVERY_EFFECTIVE_ACCOUNT_AUTH_ENABLED") === "true", "site_url" => "https://api.oobcreative.com", "vendor_autoload" => "/home1/reaqfvmy/oob-discovery-vendor/autoload.php", "smtp" => $smtp]]; file_put_contents("/tmp/oob-discovery-results.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n");'
+          php -r '$username = trim((string)getenv("DISCOVERY_SMTP_USERNAME")); $password = (string)getenv("DISCOVERY_SMTP_PASSWORD"); $from = trim((string)(getenv("DISCOVERY_SMTP_FROM_EMAIL") ?: $username)); if (!filter_var($username, FILTER_VALIDATE_EMAIL)) { fwrite(STDERR, "DISCOVERY_SMTP_USERNAME must be a valid licensed Google Workspace email.\n"); exit(1); } if ($password === "") { fwrite(STDERR, "DISCOVERY_SMTP_PASSWORD is required.\n"); exit(1); } if (!filter_var($from, FILTER_VALIDATE_EMAIL)) { fwrite(STDERR, "DISCOVERY_SMTP_FROM_EMAIL must be a valid email when provided.\n"); exit(1); } $smtp = ["host" => "smtp.gmail.com", "port" => 587, "username" => $username, "password" => $password, "from_email" => $from, "from_name" => "oobCREATIVE Discovery"]; $config = ["username" => getenv("DISCOVERY_RESULTS_VIEWER"), "password_hash" => getenv("DISCOVERY_RESULTS_PASSWORD_HASH"), "timezone" => "America/Denver", "runtime" => ["smtp_ready" => true], "account_auth" => ["enabled" => true, "site_url" => "https://api.oobcreative.com", "vendor_autoload" => "/home1/reaqfvmy/oob-discovery-vendor/autoload.php", "smtp" => $smtp]]; file_put_contents("/tmp/oob-discovery-results.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n");'
           php -l /tmp/oob-discovery-results.php
 
       - name: Deploy API endpoints and private runtime files
@@ -193,7 +177,7 @@ jobs:
             exit $code
           '
 
-      - name: Verify Google Workspace SMTP when account auth is active
+      - name: Verify Google Workspace SMTP
         env:
           BLUEHOST_SSH_HOST: ${{ secrets.BLUEHOST_SSH_HOST }}
           BLUEHOST_SSH_USER: ${{ secrets.BLUEHOST_SSH_USER }}
