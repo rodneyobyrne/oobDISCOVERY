@@ -28,12 +28,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!oobAccountAuthEnabled($accessConfig)) {
         $error = 'Password reset is not enabled yet.';
     } else {
-        $email = strtolower(trim((string)($_POST['email'] ?? '')));
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $error = 'Enter a valid email address.';
+        $identifier = trim((string)($_POST['identifier'] ?? ''));
+        $validIdentifier = filter_var($identifier, FILTER_VALIDATE_EMAIL) !== false || oobValidUsername($identifier);
+        if (!$validIdentifier) {
+            $error = 'Enter the email address or username used for this account.';
         } else {
             try {
-                $user = oobUserByEmail($pdo, $email);
+                $user = oobUserByIdentifier($pdo, $identifier);
                 if ($user && in_array((string)$user['status'], ['pending', 'active'], true)) {
                     $purpose = (string)$user['status'] === 'pending' ? 'verify' : 'reset';
                     $recent = $pdo->prepare('SELECT 1 FROM discovery_account_tokens WHERE user_id = :user_id AND purpose = :purpose AND used_at IS NULL AND created_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 60 SECOND) LIMIT 1');
@@ -61,11 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($sent) {
-    $body = '<p class="notice notice-success" role="status">If that email belongs to an account, a verification or password-reset link should arrive shortly.</p>'
-        . '<p>If nothing arrives after a couple of minutes, check spam and try once more. A failed delivery no longer blocks the next request.</p>'
+    $body = '<p class="notice notice-success" role="status">If that email or username belongs to an account, a verification or password-reset link should arrive at its registered email shortly.</p>'
+        . '<p>If nothing arrives after a couple of minutes, check spam and try once more. A failed delivery does not block the next request.</p>'
         . '<div class="actions"><a class="button" href="/discovery/results/">Return to sign in</a></div>';
 } else {
     $body = ($error ? '<p class="notice notice-error" role="alert">' . oobEscape($error) . '</p>' : '')
-        . '<form method="post" class="form"><input type="hidden" name="csrf" value="' . oobEscape(oobCsrfToken()) . '"><label for="email">Account email</label><input id="email" name="email" type="email" autocomplete="email" maxlength="254" required autofocus><button type="submit">Send account link</button></form><div class="actions"><a class="button button-secondary" href="/discovery/results/">Return to sign in</a></div>';
+        . '<form method="post" class="form"><input type="hidden" name="csrf" value="' . oobEscape(oobCsrfToken()) . '"><label for="identifier">Account email or username</label><input id="identifier" name="identifier" type="text" autocomplete="username" maxlength="254" required autofocus><button type="submit">Send account link</button></form><div class="actions"><a class="button button-secondary" href="/discovery/results/">Return to sign in</a></div>';
 }
-oobRenderAccountPage('Get back into your account', 'Account help', 'Enter your account email. Active accounts receive a one-hour password-reset link; accounts still waiting for verification receive a new verification link.', $body, $error ? 400 : 200);
+oobRenderAccountPage('Get back into your account', 'Account help', 'Enter your account email or username. Active accounts receive a one-hour password-reset link; accounts still waiting for verification receive a new verification link.', $body, $error ? 400 : 200);
