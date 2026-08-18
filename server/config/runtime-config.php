@@ -11,21 +11,20 @@ if (!is_array($config)) {
     throw new RuntimeException('Submission database configuration is invalid.');
 }
 
-$accessPath = __DIR__ . '/oob-discovery-results.php';
-$access = is_file($accessPath) ? require $accessPath : [];
-if (!is_array($access)) $access = [];
-
 $requestPath = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
 $forceSubmission = getenv('OOB_DISCOVERY_DB_ROLE') === 'submission';
 $publicSubmission = $requestPath !== '' && str_starts_with($requestPath, '/discovery/submit');
 $useSubmission = $forceSubmission || $publicSubmission;
 
-$resultsDatabase = $access['results_database'] ?? [];
+$resultsDbPath = __DIR__ . '/oob-discovery-results-db.php';
+$resultsDatabase = is_file($resultsDbPath) ? require $resultsDbPath : [];
 $resultsReady = is_array($resultsDatabase)
     && trim((string)($resultsDatabase['user'] ?? '')) !== ''
-    && trim((string)($resultsDatabase['password'] ?? '')) !== '';
+    && trim((string)($resultsDatabase['password'] ?? '')) !== ''
+    && trim((string)($resultsDatabase['database'] ?? '')) !== '';
 
 if (!$useSubmission && $resultsReady) {
+    $config['database']['name'] = (string)$resultsDatabase['database'];
     $config['database']['user'] = (string)$resultsDatabase['user'];
     $config['database']['password'] = (string)$resultsDatabase['password'];
 }

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 $configDir = dirname(__DIR__) . '/config';
 $submissionPath = $configDir . '/oob-discovery-submit-config.php';
-$resultsPath = $configDir . '/oob-discovery-results.php';
+$resultsDbPath = $configDir . '/oob-discovery-results-db.php';
 
 function writePhpConfig(string $path, array $value): void
 {
@@ -27,11 +27,10 @@ try {
             'password' => 'submit_password',
         ],
     ]);
-    writePhpConfig($resultsPath, [
-        'results_database' => [
-            'user' => 'results_user',
-            'password' => 'results_password',
-        ],
+    writePhpConfig($resultsDbPath, [
+        'database' => 'discovery',
+        'user' => 'results_user',
+        'password' => 'results_password',
     ]);
 
     putenv('OOB_DISCOVERY_DB_ROLE=submission');
@@ -51,7 +50,7 @@ try {
     expectValue($config['database']['user'] ?? null, 'results_user', 'Private results requests must use the private results database user when configured.');
     expectValue($config['runtime']['database_role'] ?? null, 'results', 'Private results requests must be reported as results.');
 
-    writePhpConfig($resultsPath, ['results_database' => ['user' => '', 'password' => '']]);
+    writePhpConfig($resultsDbPath, ['database' => 'discovery', 'user' => '', 'password' => '']);
     $config = require $configDir . '/runtime-config.php';
     expectValue($config['database']['user'] ?? null, 'submit_user', 'Missing private results credentials must fall back without changing the submission credential.');
     expectValue($config['runtime']['database_role'] ?? null, 'submission-fallback', 'Missing private results credentials must report the fallback role.');
@@ -59,7 +58,7 @@ try {
     fwrite(STDOUT, "Runtime database role contract OK\n");
 } finally {
     @unlink($submissionPath);
-    @unlink($resultsPath);
+    @unlink($resultsDbPath);
     putenv('OOB_DISCOVERY_DB_ROLE');
     unset($_SERVER['REQUEST_URI']);
 }
