@@ -24,6 +24,9 @@ if (oobAccountTokenState($tokenRecord) !== 'active') {
     oobRenderAccountPage('Reset link required', 'Password reset', 'A verified reset session is required before a password can be changed.', $body, 403);
 }
 
+$user = oobUserById($pdo, (int)($tokenRecord['user_id'] ?? 0));
+$accountUsername = trim((string)($user['username'] ?? ''));
+$accountEmail = strtolower(trim((string)($user['email'] ?? '')));
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!oobValidCsrf()) {
@@ -46,6 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$accountNote = '';
+if (oobValidUsername($accountUsername) && filter_var($accountEmail, FILTER_VALIDATE_EMAIL)) {
+    $accountNote = '<p class="notice notice-info"><strong>Account:</strong> ' . oobEscape($accountUsername) . '<br><strong>Email:</strong> ' . oobEscape($accountEmail) . '<br>You can sign in with either one. They use the same password.</p>';
+}
 $body = ($error ? '<p class="notice notice-error" role="alert">' . oobEscape($error) . '</p>' : '')
-    . '<form method="post" class="form"><input type="hidden" name="csrf" value="' . oobEscape(oobCsrfToken()) . '"><input type="hidden" name="token" value="' . oobEscape($token) . '"><label for="password">New password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required autofocus><small>Use at least 12 characters.</small><label for="password_confirmation">Confirm new password</label><input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><button type="submit">Save new password</button></form>';
-oobRenderAccountPage('Choose a new password', 'Password reset', 'Your reset link was verified. Create the password you will use for future sign-ins.', $body, $error ? 400 : 200);
+    . $accountNote
+    . '<form method="post" class="form"><input type="hidden" name="csrf" value="' . oobEscape(oobCsrfToken()) . '"><input type="hidden" name="token" value="' . oobEscape($token) . '"><label for="password">New password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required autofocus><small>Use at least 12 characters. This will be the password for both your username and email sign-in.</small><label for="password_confirmation">Confirm new password</label><input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><button type="submit">Save new password</button></form>';
+oobRenderAccountPage('Choose a new password', 'Password reset', 'Your reset link was verified. You are changing the password for one Discovery account; its username and email are two ways to sign in to that same account.', $body, $error ? 400 : 200);
