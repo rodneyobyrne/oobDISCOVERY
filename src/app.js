@@ -1,11 +1,13 @@
-import { systemConfig } from "./system-config.js?v=0.2.2";
-import { clinicianCore } from "../config/clinician-core.js?v=0.2.2";
-import { varettoConfig } from "../config/varetto.js?v=0.2.2";
+import { systemConfig } from "./system-config.js?v=0.4.0";
+import { clinicianCore } from "../config/clinician-core.js?v=0.4.0";
+import { varettoConfig } from "../config/varetto.js?v=0.4.0";
 
 const config = varettoConfig;
 const app = document.querySelector("#app");
 const dictationDialog = document.querySelector("#dictation-notice");
 const patternCache = new Map();
+let patternSequence = 1;
+let patternOrder = ["audience-pattern-1"];
 let activeRecognition = null;
 let autosaveTimer = null;
 let startedAt = new Date().toISOString();
@@ -24,10 +26,11 @@ const esc = (value = "") => String(value)
 
 function narrativeField(id, label, help = "", questionNumber = "", questionKey = "") {
   const questionAttribute = questionKey ? ` data-question="${esc(questionKey)}"` : "";
+  const numberClass = String(questionNumber).length > 2 ? "question-number question-number-wide" : "question-number";
   return `<div class="field"${questionAttribute}>
-    <label for="${esc(id)}">${questionNumber ? `<span class="question-number">${esc(questionNumber)}</span>` : ""}${esc(label)}</label>
+    <label for="${esc(id)}">${questionNumber ? `<span class="${numberClass}">${esc(questionNumber)}</span>` : ""}${esc(label)}</label>
     ${help ? `<p class="help">${esc(help)}</p>` : ""}
-    <textarea id="${esc(id)}" name="${esc(id)}" data-narrative></textarea>
+    <textarea id="${esc(id)}" name="${esc(id)}" maxlength="10000" data-narrative></textarea>
     <div class="textarea-tools">
       <button type="button" class="button secondary small dictate" data-target="${esc(id)}" aria-controls="${esc(id)}-dictation">Use microphone</button>
       <button type="button" class="button small dictate-stop hidden" data-target="${esc(id)}">Stop now</button>
@@ -45,43 +48,65 @@ function checkboxList(prefix, options, className = "choice-list") {
   `).join("")}</div>`;
 }
 
-function renderAudienceChoices() {
-  return config.audienceSituations.map(item => `
-    <label class="situation-choice">
-      <input type="checkbox" name="audience.${esc(item.id)}" value="${esc(item.id)}" data-audience-choice>
-      <span class="situation-choice-copy">
-        <strong>${esc(item.title)}</strong>
-        <span>${esc(item.situation)}</span>
-      </span>
+function radioList(prefix, options, className = "choice-list") {
+  return `<div class="${esc(className)}">${options.map(option => `
+    <label>
+      <input type="radio" name="${esc(prefix)}" value="${esc(option.id)}">
+      <span>${esc(option.label)}</span>
     </label>
-  `).join("");
+  `).join("")}</div>`;
 }
 
-function renderPatternQuestion(audienceId, question) {
-  const questionKey = `${audienceId}-${question.number}`;
-  if (question.key === "associatedConditions") {
-    return `<fieldset class="field condition-field" data-question="${esc(questionKey)}">
-      <legend><span class="question-number">${question.number}</span>${esc(question.label)}</legend>
+function nextPatternId() {
+  patternSequence += 1;
+  return `audience-pattern-${patternSequence}`;
+}
+
+function renderPatternQuestion(patternId, question, index) {
+  const questionNumber = `P${index + 1}.${question.number}`;
+  const questionKey = `${patternId}-${question.key}`;
+  if (question.type === "evidence") {
+    return `<fieldset class="field evidence-field" data-question="${esc(questionKey)}">
+      <legend><span class="question-number question-number-wide">${esc(questionNumber)}</span>${esc(question.label)}</legend>
       <p class="help">${esc(question.help)}</p>
-      ${checkboxList(`pattern.${audienceId}.conditions`, config.conditionOptions, "choice-list compact")}
+      <p class="subquestion">Relationship to the intended practice</p>
+      ${radioList(`pattern.${patternId}.basis`, config.audienceBasisOptions, "choice-list compact")}
+      <p class="subquestion">Sources informing this description</p>
+      ${checkboxList(`pattern.${patternId}.evidence`, config.evidenceSourceOptions, "choice-list compact")}
+    </fieldset>`;
+  }
+  if (question.type === "conditions") {
+    return `<fieldset class="field condition-field" data-question="${esc(questionKey)}">
+      <legend><span class="question-number question-number-wide">${esc(questionNumber)}</span>${esc(question.label)}</legend>
+      <p class="help">${esc(question.help)}</p>
+      ${checkboxList(`pattern.${patternId}.conditions`, config.conditionOptions, "choice-list compact")}
     </fieldset>`;
   }
   return narrativeField(
-    `pattern-${audienceId}-${question.key}`,
+    `${patternId}-${question.key}`,
     question.label,
     question.help || "",
-    question.number,
+    questionNumber,
     questionKey
   ).replace("data-narrative", `data-narrative data-pattern-key="${esc(question.key)}"`);
 }
 
-function renderPatternCard(item, index) {
-  return `<article class="pattern-card" data-audience-id="${esc(item.id)}">
-    <p class="eyebrow">Priority audience ${index + 1}</p>
-    <h3>${esc(item.title)}</h3>
-    <p class="pattern-situation">${esc(item.situation)}</p>
+function renderPatternCard(patternId, index) {
+  return `<article class="pattern-card" data-audience-id="${esc(patternId)}">
+    <div class="pattern-heading">
+      <div>
+        <p class="eyebrow">Candidate audience pattern ${index + 1}</p>
+        <h3>Describe one recognizable audience.</h3>
+      </div>
+      ${patternOrder.length > 1 ? `<button type="button" class="text-button remove-pattern" data-remove-pattern="${esc(patternId)}">Remove this pattern</button>` : ""}
+    </div>
+    <div class="field" data-question="${esc(patternId)}-working-label">
+      <label for="${esc(patternId)}-workingLabel"><span class="question-number question-number-wide">P${index + 1}.0</span>Give this pattern a short, neutral working label.</label>
+      <p class="help">Name the central tension or help-seeking position—not a fictional person, diagnosis, occupation, or demographic stereotype. Example: “Protecting competence while privately questioning control.”</p>
+      <input id="${esc(patternId)}-workingLabel" name="${esc(patternId)}.workingLabel" type="text" maxlength="240" data-pattern-key="workingLabel">
+    </div>
     <div class="pattern-questions">
-      ${clinicianCore.patternQuestions.map(question => renderPatternQuestion(item.id, question)).join("")}
+      ${clinicianCore.patternQuestions.map(question => renderPatternQuestion(patternId, question, index)).join("")}
     </div>
   </article>`;
 }
@@ -89,19 +114,19 @@ function renderPatternCard(item, index) {
 function render() {
   app.innerHTML = `
     <section class="form-intro">
-      <p class="eyebrow">${esc(config.clientLabel)} · Therapy website discovery</p>
+      <p class="eyebrow">${esc(config.clientLabel)} · Clinical audience mapper</p>
       <h1>${esc(config.intro.title)}</h1>
       <p class="lede">${esc(config.intro.lead)}</p>
       <p>${esc(config.intro.purpose)}</p>
       <div class="meta-strip">
-        <span class="meta-pill">${esc(systemConfig.estimatedMinutes)} minutes</span>
-        <span class="meta-pill">Every discovery question is optional</span>
+        <span class="meta-pill">${esc(systemConfig.estimatedMinutes)}</span>
+        <span class="meta-pill">Most questions are optional</span>
         <span class="meta-pill">Draft saves in this browser</span>
       </div>
       <div class="notice">
-        <strong>Please keep examples anonymous.</strong>
+        <strong>${esc(config.intro.boundary)}</strong>
         <p>Describe recurring patterns and situations, but do not include names, contact information, dates of birth, exact dates, unusual combinations of details, or anything else that could identify an individual.</p>
-        <p>This is website discovery—not a patient intake, clinical assessment, or request for patient records. “Unsure” and unanswered questions are both acceptable.</p>
+        <p>When possible, distinguish direct client language, repeated observation, collateral information, and clinical inference. “Unsure” and unanswered questions are acceptable.</p>
       </div>
       ${!systemConfig.submissionEndpoint ? `<div class="runtime-banner"><strong>Setup note:</strong> central data storage is not connected. Download a response backup instead.</div>` : ""}
     </section>
@@ -116,7 +141,7 @@ function render() {
         <div class="section-copy">
           <p class="eyebrow">Your response</p>
           <h2>Who is responding?</h2>
-          <p>These fields help Rodney distinguish the two responses. They are optional.</p>
+          <p>These fields distinguish clinician responses. They are optional.</p>
         </div>
         <div class="field"><label for="respondentName">Name</label><input id="respondentName" name="respondent.name" type="text" autocomplete="name"></div>
         <div class="field"><label for="respondentEmail">Email</label><input id="respondentEmail" name="respondent.email" type="email" autocomplete="email"></div>
@@ -124,58 +149,40 @@ function render() {
 
       <section class="form-section" data-section>
         <div class="section-copy">
-          <p class="eyebrow">1 · Services</p>
-          <h2>What will Varetto Therapy offer?</h2>
-          <p>Start with what will actually be available. We can refine terminology later.</p>
+          <p class="eyebrow">1 · Practice reality</p>
+          <h2>Define the service and population boundaries.</h2>
+          <p>Start with what will actually be available. This prevents a compelling audience pattern from being mistaken for a service, specialty, or level of care Varetto cannot provide.</p>
         </div>
         <fieldset class="field" data-question="1">
           <legend><span class="question-number">1</span>Which therapy services will Varetto offer when the website launches?</legend>
           ${checkboxList("service", config.serviceOptions)}
         </fieldset>
         <fieldset class="field" data-question="2">
-          <legend><span class="question-number">2</span>Who can receive those services?</legend>
+          <legend><span class="question-number">2</span>Which care or recovery contexts can these services support?</legend>
           ${checkboxList("recipient", config.recipientOptions)}
         </fieldset>
-        ${narrativeField("practicalLimits", "What else should I understand about the services, availability, or limits?", "Add any service not listed. Consider age, location, licensure, in-person or virtual availability, payment, scheduling, stability, and level of care.", 3, "3")}
+        ${narrativeField("currentPopulation", "Which populations are already represented in Varetto’s clinical experience?", "Describe recurring groups or patterns rather than individual cases. Note what is well established versus occasional.", 3, "3")}
+        ${narrativeField("intendedPopulation", "Which populations does Varetto intentionally want to serve more?", "This may be aspirational. Identify it as a future-practice direction rather than presenting it as existing clinical evidence.", 4, "4")}
+        ${narrativeField("practicalLimits", "What clinical, practical, or access boundaries should constrain the audience strategy?", "Consider age, location, licensure, in-person or virtual availability, payment, scheduling, stability, acuity, level of care, and referral thresholds.", 5, "5")}
+        ${narrativeField("honestPromise", "What can Varetto honestly promise about the experience of care?", "Describe process, stance, safety, collaboration, and therapeutic approach—not guaranteed outcomes or universal fit.", 6, "6")}
       </section>
 
-      <section class="form-section" data-section>
+      <section class="form-section" id="audience-detail-section" data-section>
         <div class="section-copy">
-          <p class="eyebrow">2 · Audience</p>
-          <h2>Which people should the website understand especially well?</h2>
-          <p>Choose up to three situations. Select the closest match even if the wording is not perfect; the next section gives you room to clarify it.</p>
-        </div>
-        <fieldset class="field" data-question="4">
-          <legend><span class="question-number">4</span>Which situations best represent the people Varetto wants the website to reach?</legend>
-          <p class="selection-count" id="selection-count">0 of 3 selected</p>
-          <div class="situation-list">${renderAudienceChoices()}</div>
-        </fieldset>
-      </section>
-
-      <section class="form-section hidden" id="audience-detail-section" data-section>
-        <div class="section-copy">
-          <p class="eyebrow">3 · Recognizable patterns</p>
-          <h2>What is life like for these people?</h2>
-          <p>Answer what you know. Short phrases are enough. Your job is to share experience; Rodney will do the persona development and content analysis afterward.</p>
+          <p class="eyebrow">2 · Candidate audiences</p>
+          <h2>Describe one audience pattern at a time.</h2>
+          <p>Begin with the primary audience. Add another only when its motivation, decision process, language, trust requirement, or service pathway is meaningfully different. A different diagnosis, occupation, age, or recovery stage may be context for the same underlying archetype.</p>
         </div>
         <div id="audience-patterns"></div>
-      </section>
-
-      <section class="form-section" data-section>
-        <div class="section-copy">
-          <p class="eyebrow">4 · Website language</p>
-          <h2>Help the website sound like it understands.</h2>
-          <p>Think about the priority audiences you selected. Differences between them are useful; note those differences in your answer.</p>
+        <div class="pattern-actions">
+          <button type="button" class="button secondary" id="add-pattern">Add another audience pattern</button>
+          <p class="help" id="pattern-count"></p>
         </div>
-        ${narrativeField("searchLanguage", "What might this person type into Google or say when asking someone for help?", "Use words you have actually heard whenever possible.", 15, "15")}
-        ${narrativeField("recognitionNeed", "What would they need to read to think, “They understand what this is like”?", "", 16, "16")}
-        ${narrativeField("languageToAvoid", "What language might make them feel judged, misunderstood, or incorrectly labeled?", "", 17, "17")}
-        ${narrativeField("honestPromise", "What can Varetto honestly promise about the experience of working with its therapists?", "Focus on the experience and approach—not a guaranteed outcome.", 18, "18")}
       </section>
 
       <div id="validation-output" class="notice hidden"></div>
       <div class="privacy-confirmation">
-        <label><input type="checkbox" id="privacy-acknowledgment" name="privacyAcknowledgment" value="yes"> I have kept any patient examples anonymous and understand that this response will be used for Varetto’s service, audience, and website-content development.</label>
+        <label><input type="checkbox" id="privacy-acknowledgment" name="privacyAcknowledgment" value="yes"> I have kept all examples anonymous and understand that this is an audience-mapping response—not a clinical record or diagnostic assessment.</label>
       </div>
       <div class="form-actions">
         <div>
@@ -189,28 +196,33 @@ function render() {
     </form>
   `;
 
+  syncAudiencePanels();
   wireEvents();
   restoreDraft();
-  syncAudiencePanels();
   updateProgress();
-}
-
-function selectedAudienceIds() {
-  return [...document.querySelectorAll("[data-audience-choice]:checked")].map(input => input.value);
 }
 
 function collectCurrentPatterns() {
   return [...document.querySelectorAll(".pattern-card")].map(card => {
     const result = {
       audienceId: card.dataset.audienceId,
-      associatedConditions: []
+      audienceBasis: "",
+      evidenceSources: [],
+      clinicalContext: []
     };
     card.querySelectorAll("[data-pattern-key]").forEach(field => {
       result[field.dataset.patternKey] = field.value.trim();
     });
+    const basis = card.querySelector(`input[name="pattern.${CSS.escape(card.dataset.audienceId)}.basis"]:checked`);
+    const basisOption = config.audienceBasisOptions.find(item => item.id === basis?.value);
+    result.audienceBasis = basisOption?.label || "";
+    card.querySelectorAll(`input[name^="pattern.${CSS.escape(card.dataset.audienceId)}.evidence."]:checked`).forEach(input => {
+      const option = config.evidenceSourceOptions.find(item => item.id === input.value);
+      result.evidenceSources.push(option?.label || input.value);
+    });
     card.querySelectorAll(`input[name^="pattern."][name*=".conditions."]:checked`).forEach(input => {
       const option = config.conditionOptions.find(item => item.id === input.value);
-      result.associatedConditions.push(option?.label || input.value);
+      result.clinicalContext.push(option?.label || input.value);
     });
     return result;
   });
@@ -222,7 +234,21 @@ function cacheCurrentPatterns() {
 
 function populatePatternCard(card, existing = {}) {
   Object.entries(existing).forEach(([key, value]) => {
-    if (key === "associatedConditions" && Array.isArray(value)) {
+    if (key === "audienceBasis" && typeof value === "string") {
+      card.querySelectorAll(`input[name="pattern.${CSS.escape(card.dataset.audienceId)}.basis"]`).forEach(input => {
+        const option = config.audienceBasisOptions.find(item => item.id === input.value);
+        input.checked = value === (option?.label || input.value);
+      });
+      return;
+    }
+    if (key === "evidenceSources" && Array.isArray(value)) {
+      card.querySelectorAll(`input[name^="pattern.${CSS.escape(card.dataset.audienceId)}.evidence."]`).forEach(input => {
+        const option = config.evidenceSourceOptions.find(item => item.id === input.value);
+        input.checked = value.includes(option?.label || input.value);
+      });
+      return;
+    }
+    if (key === "clinicalContext" && Array.isArray(value)) {
       card.querySelectorAll(`input[name^="pattern."][name*=".conditions."]`).forEach(input => {
         const option = config.conditionOptions.find(item => item.id === input.value);
         input.checked = value.includes(option?.label || input.value);
@@ -237,18 +263,27 @@ function populatePatternCard(card, existing = {}) {
 function syncAudiencePanels(restoredPatterns = null) {
   cacheCurrentPatterns();
   if (Array.isArray(restoredPatterns)) {
+    const restoredOrder = [];
     restoredPatterns.forEach(pattern => {
-      if (pattern?.audienceId) patternCache.set(pattern.audienceId, pattern);
+      if (pattern?.audienceId) {
+        patternCache.set(pattern.audienceId, pattern);
+        restoredOrder.push(pattern.audienceId);
+        const sequence = Number(String(pattern.audienceId).split("-").pop());
+        if (Number.isFinite(sequence)) patternSequence = Math.max(patternSequence, sequence);
+      }
     });
+    if (restoredOrder.length) patternOrder = restoredOrder.slice(0, config.maxAudiencePatterns);
   }
-  const ids = selectedAudienceIds();
   const container = document.querySelector("#audience-patterns");
-  const section = document.querySelector("#audience-detail-section");
-  const selected = ids.map(id => config.audienceSituations.find(item => item.id === id)).filter(Boolean);
-  container.innerHTML = selected.map(renderPatternCard).join("");
+  container.innerHTML = patternOrder.map(renderPatternCard).join("");
   container.querySelectorAll(".pattern-card").forEach(card => populatePatternCard(card, patternCache.get(card.dataset.audienceId) || {}));
-  section.classList.toggle("hidden", selected.length === 0);
-  document.querySelector("#selection-count").textContent = `${selected.length} of 3 selected`;
+  const addButton = document.querySelector("#add-pattern");
+  const atLimit = patternOrder.length >= config.maxAudiencePatterns;
+  addButton.disabled = atLimit;
+  addButton.classList.toggle("hidden", atLimit);
+  document.querySelector("#pattern-count").textContent = atLimit
+    ? `Maximum of ${config.maxAudiencePatterns} candidate patterns reached.`
+    : `${patternOrder.length} of up to ${config.maxAudiencePatterns} candidate patterns.`;
   wireDictation(container);
   updateProgress();
 }
@@ -259,19 +294,30 @@ function wireEvents() {
     scheduleAutosave();
     updateProgress();
   });
-  form.addEventListener("change", event => {
-    if (event.target.matches("[data-audience-choice]")) {
-      const ids = selectedAudienceIds();
-      if (ids.length > 3) {
-        event.target.checked = false;
-        setStatus("Choose up to three priority audience situations. You can change your selections at any time.", "error");
-        updateProgress();
-        return;
-      }
-      syncAudiencePanels();
-    }
+  form.addEventListener("change", () => {
     scheduleAutosave();
     updateProgress();
+  });
+  form.addEventListener("click", event => {
+    const addButton = event.target.closest("#add-pattern");
+    if (addButton && patternOrder.length < config.maxAudiencePatterns) {
+      cacheCurrentPatterns();
+      const id = nextPatternId();
+      patternOrder.push(id);
+      syncAudiencePanels();
+      document.querySelector(`[data-audience-id="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      scheduleAutosave();
+      return;
+    }
+    const removeButton = event.target.closest("[data-remove-pattern]");
+    if (removeButton && patternOrder.length > 1) {
+      cacheCurrentPatterns();
+      const id = removeButton.dataset.removePattern;
+      patternOrder = patternOrder.filter(patternId => patternId !== id);
+      patternCache.delete(id);
+      syncAudiencePanels();
+      scheduleAutosave();
+    }
   });
   form.addEventListener("submit", submitForm);
   document.querySelector("#save-backup").addEventListener("click", () => downloadJson(buildSubmission(), "draft"));
@@ -421,34 +467,29 @@ function collectOptionLabels(prefix, options) {
   return options.filter(option => document.querySelector(`[name="${CSS.escape(`${prefix}.${option.id}`)}"]:checked`)).map(option => option.label);
 }
 
-function collectSelectedAudiences() {
-  return selectedAudienceIds().map(id => config.audienceSituations.find(item => item.id === id)).filter(Boolean);
+function patternHasContent(pattern) {
+  return Object.entries(pattern).some(([key, value]) => {
+    if (key === "audienceId") return false;
+    if (Array.isArray(value)) return value.length > 0;
+    return typeof value === "string" && value.trim() !== "";
+  });
 }
 
 function collectPatterns() {
-  const audienceMap = new Map(config.audienceSituations.map(item => [item.id, item]));
-  return collectCurrentPatterns().map(pattern => {
-    const audience = audienceMap.get(pattern.audienceId);
-    return {
-      audienceId: pattern.audienceId,
-      title: audience?.title || "",
-      situation: audience?.situation || "",
-      helpSeekingMoment: pattern.helpSeekingMoment || "",
-      outsideView: pattern.outsideView || "",
-      privateExperience: pattern.privateExperience || "",
-      repeatedPattern: pattern.repeatedPattern || "",
-      temporaryFunction: pattern.temporaryFunction || "",
-      desiredChange: pattern.desiredChange || "",
-      contactHesitation: pattern.contactHesitation || "",
-      serviceFit: pattern.serviceFit || "",
-      associatedConditions: pattern.associatedConditions || [],
-      referralBoundary: pattern.referralBoundary || ""
-    };
-  });
+  return collectCurrentPatterns().filter(patternHasContent);
+}
+
+function collectAudienceSummaries(patterns) {
+  return patterns.map((pattern, index) => ({
+    id: pattern.audienceId,
+    title: pattern.workingLabel || `Audience pattern ${index + 1}`,
+    situation: pattern.helpSeekingState || ""
+  }));
 }
 
 function buildSubmission() {
   const named = collectNamedFields();
+  const patterns = collectPatterns();
   return {
     submissionId,
     system: systemConfig.system,
@@ -464,22 +505,23 @@ function buildSubmission() {
     services: {
       offered: collectOptionLabels("service", config.serviceOptions),
       recipients: collectOptionLabels("recipient", config.recipientOptions),
+      currentPopulation: named.currentPopulation || "",
+      intendedPopulation: named.intendedPopulation || "",
       boundaries: named.practicalLimits || ""
     },
-    audiences: collectSelectedAudiences(),
-    patientPatterns: collectPatterns(),
+    audiences: collectAudienceSummaries(patterns),
+    patientPatterns: patterns,
     narrative: {
-      searchLanguage: named.searchLanguage || "",
-      recognitionNeed: named.recognitionNeed || "",
-      languageToAvoid: named.languageToAvoid || "",
       honestPromise: named.honestPromise || ""
     },
     sourceIntegrity: {
-      responseType: "stakeholder-discovery-response",
+      responseType: "clinical-audience-mapping-response",
       patientIdentifyingInformationRequested: false,
       interpretationIncluded: false,
       respondentHypothesisIncluded: true,
-      evidenceModel: "stakeholder-observation-and-professional-judgment"
+      archetypeGenerated: false,
+      diagnosticAssessment: false,
+      evidenceModel: "clinician-reported-observation-inference-and-intended-audience-hypothesis"
     }
   };
 }
@@ -488,6 +530,7 @@ function validate() {
   const errors = [];
   const email = document.querySelector("#respondentEmail");
   if (email?.value && !email.validity.valid) errors.push("Enter a valid email address or leave the email field blank.");
+  if (collectPatterns().length === 0) errors.push("Describe at least one candidate audience pattern before submitting.");
   if (!document.querySelector("#privacy-acknowledgment").checked) errors.push("Confirm that patient examples have been kept anonymous before submitting.");
   return errors;
 }
@@ -551,7 +594,7 @@ function autosave() {
     submissionId,
     startedAt,
     fields: collectNamedFields(),
-    patterns: collectPatterns(),
+    patterns: collectCurrentPatterns(),
     savedAt: new Date().toISOString()
   };
   try {
@@ -614,7 +657,7 @@ function downloadJson(payload, label) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${config.clientId}-therapy-discovery-${label}-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = `${config.clientId}-clinical-audience-map-${label}-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
   URL.revokeObjectURL(url);
 }

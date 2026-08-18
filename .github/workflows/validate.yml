@@ -29,9 +29,14 @@ jobs:
           import { varettoConfig } from './config/varetto.js';
           const keys = clinicianCore.patternQuestions.map(question => question.key);
           if (new Set(keys).size !== keys.length) throw new Error('Pattern question keys must be unique.');
-          if (varettoConfig.audienceSituations.length < 3) throw new Error('Audience situation prompts are required.');
-          if (new Set(varettoConfig.audienceSituations.map(item => item.id)).size !== varettoConfig.audienceSituations.length) throw new Error('Audience situation IDs must be unique.');
-          if (!varettoConfig.questionnaireVersion.endsWith('-v3')) throw new Error('Expected the v3 questionnaire contract.');
+          if (clinicianCore.patternQuestions.length !== 11) throw new Error('Expected 11 audience-pattern questions.');
+          if (varettoConfig.maxAudiencePatterns !== 4) throw new Error('Expected a four-pattern collection limit.');
+          for (const optionSet of ['audienceBasisOptions', 'evidenceSourceOptions', 'conditionOptions']) {
+            const options = varettoConfig[optionSet];
+            if (!Array.isArray(options) || options.length < 2) throw new Error(`${optionSet} is required.`);
+            if (new Set(options.map(item => item.id)).size !== options.length) throw new Error(`${optionSet} IDs must be unique.`);
+          }
+          if (!varettoConfig.questionnaireVersion.endsWith('-v4')) throw new Error('Expected the v4 questionnaire contract.');
           NODE
 
       - name: Validate JSON schema

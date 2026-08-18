@@ -1,11 +1,13 @@
 export const varettoConfig = {
   clientId: "varetto",
   clientLabel: "Varetto Recovery",
-  questionnaireVersion: "varetto-2026-08-v3",
+  questionnaireVersion: "varetto-2026-08-v4",
+  maxAudiencePatterns: 4,
   intro: {
-    title: "Help me understand who Varetto Therapy is built to help.",
-    lead: "Your answers will help define the therapy services Varetto will offer and the people the new website should speak to most clearly.",
-    purpose: "Begin with what people experience in daily life—not with diagnoses, credentials, or treatment terminology. I will use your answers to identify audience patterns, connect those patterns to appropriate clinical concerns, and develop patient-centered website content."
+    title: "Map the audiences Varetto needs to understand.",
+    lead: "This clinical audience-mapping exercise will help turn recurring practice observations into clear, evidence-informed website audiences.",
+    purpose: "Describe anonymous patterns rather than a particular patient. Separate relatively stable context from the temporary state that brings someone to care. After submission, oobCREATIVE will compare the patterns, identify likely overlap, and propose a smaller set of communication archetypes for clinician review.",
+    boundary: "This is not a patient assessment, diagnostic instrument, or request to create a fictional personality. Diagnoses and symptoms may inform the context, but they do not define the archetype."
   },
   serviceOptions: [
     { id: "individual", label: "Individual therapy" },
@@ -34,19 +36,19 @@ export const varettoConfig = {
     { id: "couples-families", label: "Couples or families" },
     { id: "other", label: "Other or still being determined" }
   ],
-  audienceSituations: [
-    { id: "questioning-control", title: "Questioning whether substance use is becoming a problem", situation: "Something is beginning to feel harder to control or easier to hide, even though life may not have completely fallen apart." },
-    { id: "ambivalent-change", title: "Wanting change but feeling uncertain about stopping", situation: "The person wants something to change without having the ending decided before they feel understood." },
-    { id: "functioning-privately-struggling", title: "Functioning outwardly while struggling privately", situation: "Work, family, or responsibilities are still getting done, but maintaining that appearance is becoming exhausting." },
-    { id: "transitioning-treatment", title: "Transitioning out of treatment", situation: "Structure is ending, ordinary life is returning, and the person is unsure how to carry change forward." },
-    { id: "early-recovery", title: "Struggling in early recovery", situation: "Substance use has changed, but emotions, relationships, routines, or identity have not caught up." },
-    { id: "after-recurrence", title: "Returning after recurrence or relapse", situation: "The person is discouraged or ashamed and may fear that asking for help means starting over or admitting failure." },
-    { id: "distress-after-stopping", title: "Stopping substance use does not resolve the underlying distress", situation: "Anxiety, sadness, anger, memories, sleeplessness, restlessness, or other difficulties become more visible when use decreases." },
-    { id: "co-occurring-recovery", title: "Managing mental-health concerns alongside recovery", situation: "Anxiety, depression, trauma, grief, sleep, attention, pain, or another concern is intertwined with substance use or recovery." },
-    { id: "relationship-repair", title: "Rebuilding relationships affected by substance use", situation: "Trust, communication, boundaries, intimacy, or family roles have been shaped by substance use and its consequences." },
-    { id: "family-seeking-help", title: "A family member or partner seeking help", situation: "Someone is worried, exhausted, angry, or confused by another person's substance use and no longer knows what helping means." },
-    { id: "recovery-identity-purpose", title: "Stable in recovery but struggling with identity, relationships, or purpose", situation: "The immediate crisis is quieter, but building a meaningful and sustainable life remains difficult." },
-    { id: "other", title: "Another important audience situation", situation: "Use the response fields to describe an audience that is not represented above." }
+  audienceBasisOptions: [
+    { id: "currently-served", label: "Currently represented in Varetto's clinical experience" },
+    { id: "intended-audience", label: "An audience Varetto intentionally wants to serve" },
+    { id: "current-and-intended", label: "Both current and intended" },
+    { id: "unsure", label: "Unsure or still being defined" }
+  ],
+  evidenceSourceOptions: [
+    { id: "direct-language", label: "Language heard directly from multiple clients" },
+    { id: "repeated-observation", label: "Recurring clinical observation" },
+    { id: "collateral", label: "Family, referral-source, or other collateral observation" },
+    { id: "clinical-inference", label: "Professional inference" },
+    { id: "future-hypothesis", label: "Future-audience hypothesis" },
+    { id: "unsure", label: "Unsure" }
   ],
   conditionOptions: [
     { id: "alcohol-use", label: "Alcohol use" },
