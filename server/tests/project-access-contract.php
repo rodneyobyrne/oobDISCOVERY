@@ -30,6 +30,14 @@ $required = [
     ['admin', "oobRedirect('/discovery/results/invitations/')"],
     ['results', 's.client_id IN ({$placeholders})'],
     ['results', 'Project responses'],
+    ['results', "=== 'delete_response'"],
+    ['results', 'Only Full Admins can delete responses.'],
+    ['results', 'DELETE FROM discovery_submissions WHERE submission_id = :submission_id'],
+    ['results', "\$_SESSION['results_flash']"],
+    ['results', '$groupedSubmissions'],
+    ['results', 'Responses are organized by project.'],
+    ['results', 'View response'],
+    ['results', 'Confirm delete'],
     ['response', 'JOIN discovery_user_clients uc ON uc.client_id = s.client_id'],
     ['response', '$isOwner'],
     ['project', 'Project visibility:'],
@@ -57,4 +65,4 @@ if (str_contains($sources['admin'], 'pattern="[a-z0-9][a-z0-9-]{1,79}" required 
     exit(1);
 }
 
-fwrite(STDOUT, "Project dashboard, project visibility, member management, redirect-after-post navigation, admin navigation, and admin controls contract OK\n");
+fwrite(STDOUT, "Project dashboard, project visibility, project-grouped response management, Full Admin response deletion, member management, redirect-after-post navigation, admin navigation, and admin controls contract OK\n");
