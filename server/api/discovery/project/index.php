@@ -41,12 +41,29 @@ if (!$project) oobRenderAccountPage('Project unavailable', 'Project dashboard', 
 
 $error = null;
 $notice = null;
+$flash = $_SESSION['project_flash'][$projectId] ?? null;
+if (isset($_SESSION['project_flash'][$projectId])) {
+    unset($_SESSION['project_flash'][$projectId]);
+    if (empty($_SESSION['project_flash'])) unset($_SESSION['project_flash']);
+}
+if (is_array($flash)) {
+    $message = trim((string)($flash['message'] ?? ''));
+    if ($message !== '') {
+        if ((string)($flash['type'] ?? '') === 'error') $error = $message;
+        else $notice = $message;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$isAdmin) {
         oobRenderAccountPage('Admin access required', 'Project dashboard', 'Only a Full Admin can change project membership.', '', 403, '', true);
     }
+
+    $flashType = 'success';
+    $flashMessage = '';
     if (!oobValidCsrf()) {
-        $error = 'Your session expired. Refresh the page and try again.';
+        $flashType = 'error';
+        $flashMessage = 'Your session expired. Refresh the page and try again.';
     } else {
         $action = (string)($_POST['action'] ?? '');
         try {
@@ -59,20 +76,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ((string)$user['status'] !== 'active') throw new InvalidArgumentException('Only active Client accounts can be added to a project.');
                 $statement = $pdo->prepare("INSERT INTO discovery_user_clients (user_id, client_id, role) VALUES (:user_id, :client_id, 'viewer') ON DUPLICATE KEY UPDATE role = 'viewer', updated_at = CURRENT_TIMESTAMP");
                 $statement->execute([':user_id' => (int)$userId, ':client_id' => $projectId]);
-                $notice = (string)$user['username'] . ' now has access to ' . (string)$project['project_name'] . '.';
+                $flashMessage = (string)$user['username'] . ' now has access to ' . (string)$project['project_name'] . '.';
             } elseif ($action === 'remove_member') {
                 $statement = $pdo->prepare('DELETE FROM discovery_user_clients WHERE user_id = :user_id AND client_id = :client_id');
                 $statement->execute([':user_id' => (int)$userId, ':client_id' => $projectId]);
-                $notice = (string)$user['username'] . ' was removed from this project. Their account and submitted data were preserved.';
+                $flashMessage = (string)$user['username'] . ' was removed from this project. Their account and submitted data were preserved.';
             } else {
                 throw new InvalidArgumentException('Choose a valid project membership action.');
             }
         } catch (Throwable $memberError) {
-            $error = $memberError instanceof InvalidArgumentException
+            $flashType = 'error';
+            $flashMessage = $memberError instanceof InvalidArgumentException
                 ? $memberError->getMessage()
                 : 'Project membership could not be updated.';
         }
     }
+
+    $_SESSION['project_flash'][$projectId] = [
+        'type' => $flashType,
+        'message' => $flashMessage,
+    ];
+    oobRedirect('/discovery/project/?project_id=' . rawurlencode($projectId));
 }
 
 $memberStatement = $pdo->prepare("SELECT u.id, u.username, u.email, u.status, COUNT(s.id) AS owned_submission_count FROM discovery_user_clients uc JOIN discovery_users u ON u.id = uc.user_id LEFT JOIN discovery_submissions s ON s.owner_user_id = u.id AND s.client_id = uc.client_id WHERE uc.client_id = :project_id AND u.is_system_admin = 0 GROUP BY u.id, u.username, u.email, u.status ORDER BY u.username");
@@ -143,4 +167,4 @@ foreach ($submissions as $row) {
 }
 $body .= '</ul></section>';
 
-oobRenderAccountPage((string)$project['project_name'], 'Project dashboard', 'Project-level Discovery data and account access.', $body, $error ? 400 : 200, $headerActions, true);
+oobRenderAccountPage((string)$project['project_name'], 'Project dashboard', 'Project-level Discovery data and account access.', $body, 200, $headerActions, true);
