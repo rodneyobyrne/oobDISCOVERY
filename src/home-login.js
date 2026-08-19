@@ -3,6 +3,7 @@ const resultsUrl = "https://api.oobcreative.com/discovery/results/";
 const adminUrl = "https://api.oobcreative.com/discovery/results/invitations/";
 const projectUrl = "https://api.oobcreative.com/discovery/project/";
 const forgotUrl = "https://api.oobcreative.com/discovery/account/forgot/";
+const verificationConfirmed = new URLSearchParams(window.location.search).get("verified") === "1";
 
 const signInPanel = document.querySelector("#sign-in-panel");
 const accountPanel = document.querySelector("#account-panel");
@@ -62,13 +63,23 @@ function renderSignedIn(session) {
   headerSignedOut.hidden = true;
   headerSignedIn.hidden = false;
 
-  headerAccountName.textContent = user.username;
+  headerAccountName.textContent = user.systemAdmin ? user.username : user.email;
   headerAccountRole.textContent = user.accountType;
-  const actions = [`<a class="button" href="${resultsUrl}">${user.systemAdmin ? "Responses" : "Project responses"}</a>`];
+  const actions = [`<a class="button" href="${resultsUrl}">${user.systemAdmin ? "Responses" : "Team responses"}</a>`];
   if (user.systemAdmin) actions.push(`<a class="button secondary" href="${adminUrl}">Projects, users &amp; access</a>`);
   headerAccountActions.innerHTML = actions.join("");
 
-  accountSummary.innerHTML = `<p class="eyebrow">${esc(user.accountType)}</p><h1>Welcome, ${esc(user.username)}.</h1><p class="lede">Signed in as ${esc(user.email)}. Project membership determines which shared Discovery data is available to this account.</p>`;
+  const verifiedNotice = verificationConfirmed
+    ? '<p class="login-status"><strong>Email verified.</strong> Your Discovery access is active.</p>'
+    : "";
+  const summary = user.systemAdmin
+    ? `<p class="eyebrow">${esc(user.accountType)}</p><h1>Welcome, ${esc(user.username)}.</h1><p class="lede">Signed in as ${esc(user.email)}. Full Admin access includes every Discovery project and response.</p>`
+    : `<p class="eyebrow">Private Discovery access</p><h1>Your Discovery workspace.</h1><p class="lede">Signed in as ${esc(user.email)}. Open a project to review what your team has shared or contribute your own perspective.</p>`;
+  accountSummary.innerHTML = verifiedNotice + summary;
+
+  if (verificationConfirmed) {
+    window.history.replaceState({}, "", window.location.pathname);
+  }
 
   if (!projects.length) {
     projectList.innerHTML = `<article class="discovery-card muted-card"><div><p class="card-kicker">No active projects</p><h3>No project access is currently assigned.</h3><p>Ask a Full Admin if you expected to see a project here.</p></div></article>`;
@@ -77,10 +88,12 @@ function renderSignedIn(session) {
 
   projectList.innerHTML = projects.map(project => {
     const intakeUrl = projectIntakeUrl(project.id);
+    const intakeLabel = user.systemAdmin ? `Open ${esc(project.name)} Discovery` : "Contribute my perspective";
+    const dashboardLabel = user.systemAdmin ? "Project dashboard" : "Review team perspectives";
     const intakeAction = intakeUrl
-      ? `<a class="button" href="${intakeUrl}">Open ${esc(project.name)} Discovery</a>`
+      ? `<a class="button" href="${intakeUrl}">${intakeLabel}</a>`
       : `<span class="button disabled" aria-disabled="true">Intake not configured</span>`;
-    return `<article class="discovery-card"><div><p class="card-kicker">${esc(project.businessType || "Project")}</p><h3>${esc(project.name)}</h3><p>Project ID: ${esc(project.id)}</p></div><div class="account-actions"><a class="button secondary" href="${projectDashboardUrl(project.id)}">Project dashboard</a>${intakeAction}</div></article>`;
+    return `<article class="discovery-card"><div><p class="card-kicker">${esc(project.businessType || "Project")}</p><h3>${esc(project.name)}</h3><p>Project ID: ${esc(project.id)}</p></div><div class="account-actions"><a class="button secondary" href="${projectDashboardUrl(project.id)}">${dashboardLabel}</a>${intakeAction}</div></article>`;
   }).join("");
 }
 
@@ -111,7 +124,7 @@ signInForm.addEventListener("submit", async event => {
   const submitButton = signInForm.querySelector("button[type='submit']");
   const identifier = signInForm.elements.identifier.value.trim();
   const password = signInForm.elements.password.value;
-  setLoginStatus("Signing in…");
+  setLoginStatus("Signing in...");
   submitButton.disabled = true;
   try {
     const session = await requestSession({
