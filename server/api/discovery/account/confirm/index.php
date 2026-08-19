@@ -19,9 +19,9 @@ try {
     }
     $user = oobVerifyAccount($pdo, $token);
     oobStoreAccountSession($user);
-    oobRedirect('/discovery/results/');
+    oobRedirect('https://discovery.oobcreative.com/?verified=1');
 } catch (OobAuthException $error) {
-    $body = '<p class="notice notice-error" role="alert">' . oobEscape($error->getMessage()) . '</p><div class="actions"><a class="button" href="/discovery/results/">Return to sign in</a></div>';
+    $body = '<p class="notice notice-error" role="alert">' . oobEscape($error->getMessage()) . '</p><div class="actions"><a class="button" href="https://discovery.oobcreative.com/">Return to Discovery</a></div>';
     oobRenderAccountPage('Link unavailable', 'Account verification', 'The link may be invalid, expired, or already used.', $body, $error->status >= 400 && $error->status < 600 ? $error->status : 400);
 } catch (Throwable $error) {
     error_log('[oobDISCOVERY-confirm] Verification failed.');
