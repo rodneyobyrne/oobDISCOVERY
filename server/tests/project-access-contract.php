@@ -37,6 +37,8 @@ $required = [
     ['project', 'Remove from project'],
     ['project', 'u.is_system_admin = 0'],
     ['project', 'Their account and submitted data were preserved'],
+    ['project', "\$_SESSION['project_flash'][\$projectId]"],
+    ['project', "oobRedirect('/discovery/project/?project_id=' . rawurlencode(\$projectId))"],
     ['deploy', 'server/api/discovery/project/index.php'],
 ];
 
@@ -52,4 +54,4 @@ if (str_contains($sources['admin'], 'pattern="[a-z0-9][a-z0-9-]{1,79}" required 
     exit(1);
 }
 
-fwrite(STDOUT, "Project dashboard, project visibility, member management, and admin controls contract OK\n");
+fwrite(STDOUT, "Project dashboard, project visibility, member management, redirect-after-post navigation, and admin controls contract OK\n");
