@@ -30,7 +30,7 @@ $required = [
     ['admin', "oobRedirect('/discovery/results/invitations/')"],
     ['results', 's.client_id IN ({$placeholders})'],
     ['results', 'Project responses'],
-    ['results', "action === 'delete_response'"],
+    ['results', "=== 'delete_response'"],
     ['results', 'Only Full Admins can delete responses.'],
     ['results', 'DELETE FROM discovery_submissions WHERE submission_id = :submission_id'],
     ['results', "\$_SESSION['results_flash']"],
