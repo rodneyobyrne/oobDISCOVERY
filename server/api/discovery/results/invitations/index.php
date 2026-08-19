@@ -25,10 +25,25 @@ if (!$principal || !$principal['system_admin']) oobRedirect('/discovery/results/
 $error = null;
 $notice = null;
 $created = null;
+$flash = $_SESSION['admin_flash'] ?? null;
+unset($_SESSION['admin_flash']);
+if (is_array($flash)) {
+    $message = trim((string)($flash['message'] ?? ''));
+    if ($message !== '') {
+        if ((string)($flash['type'] ?? '') === 'error') $error = $message;
+        else $notice = $message;
+    }
+    if (is_array($flash['created'] ?? null)) $created = $flash['created'];
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $flashType = 'success';
+    $flashMessage = '';
+    $flashCreated = null;
+
     if (!oobValidCsrf()) {
-        $error = 'Your session expired. Refresh the page and try again.';
+        $flashType = 'error';
+        $flashMessage = 'Your session expired. Refresh the page and try again.';
     } else {
         $action = (string)($_POST['action'] ?? 'create_invitation');
         try {
@@ -36,10 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $id = filter_input(INPUT_POST, 'invitation_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
                 if (!$id) throw new InvalidArgumentException('Choose a valid invitation.');
                 oobRevokeInvitation($pdo, (int)$id);
-                oobRedirect('/discovery/results/invitations/');
-            }
-
-            if ($action === 'delete_user') {
+                $flashMessage = 'Invitation revoked.';
+            } elseif ($action === 'delete_user') {
                 $userId = filter_input(INPUT_POST, 'user_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
                 if (!$userId) throw new InvalidArgumentException('Choose a valid user.');
                 if ((int)($principal['user_id'] ?? 0) === (int)$userId) throw new InvalidArgumentException('You cannot delete the account you are currently using.');
@@ -61,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $deleteUser = $pdo->prepare('DELETE FROM discovery_users WHERE id = :user_id');
                 $deleteUser->execute([':user_id' => (int)$userId]);
                 $pdo->commit();
-                $notice = 'User deleted. Existing submissions were preserved as project/historical data.';
+                $flashMessage = 'User deleted. Existing submissions were preserved as project/historical data.';
             } elseif ($action === 'delete_project') {
                 $projectRecordId = filter_input(INPUT_POST, 'project_record_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
                 if (!$projectRecordId) throw new InvalidArgumentException('Choose a valid project.');
@@ -78,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $deleteProject = $pdo->prepare('DELETE FROM discovery_projects WHERE id = :id');
                 $deleteProject->execute([':id' => (int)$projectRecordId]);
                 $pdo->commit();
-                $notice = 'Project deleted. Existing submissions were preserved for Full Admin historical access.';
+                $flashMessage = 'Project deleted. Existing submissions were preserved for Full Admin historical access.';
             } elseif ($action === 'create_project') {
                 $projectName = trim((string)($_POST['project_name'] ?? ''));
                 $projectId = strtolower(trim((string)($_POST['project_id'] ?? '')));
@@ -86,14 +99,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $businessType = preg_replace('/\s+/u', ' ', $businessType) ?? $businessType;
                 if ($projectName === '' || strlen($projectName) > 160) throw new InvalidArgumentException('Enter a project name.');
                 if (!preg_match('/^[a-z0-9][a-z0-9-]{1,79}$/', $projectId)) throw new InvalidArgumentException('Project ID must use lowercase letters, numbers, and hyphens.');
-                if ($businessType === '' || mb_strlen($businessType) > 80 || preg_match('/[\x00-\x1F\x7F]/u', $businessType)) throw new InvalidArgumentException('Enter a business type using normal words, up to 80 characters.');
+                if ($businessType === '' || strlen($businessType) > 80 || preg_match('/[\x00-\x1F\x7F]/u', $businessType)) throw new InvalidArgumentException('Enter a business type using normal words, up to 80 characters.');
                 $insert = $pdo->prepare("INSERT INTO discovery_projects (project_id, project_name, client_business_type, status) VALUES (:project_id, :project_name, :client_business_type, 'active')");
                 $insert->execute([
                     ':project_id' => $projectId,
                     ':project_name' => $projectName,
                     ':client_business_type' => $businessType,
                 ]);
-                $notice = 'Project created: ' . $projectName . '.';
+                $flashMessage = 'Project created: ' . $projectName . '.';
             } elseif ($action === 'account_email') {
                 $userId = filter_input(INPUT_POST, 'user_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
                 if (!$userId) throw new InvalidArgumentException('Choose a valid user.');
@@ -108,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $cleanup->execute([':token_hash' => oobTokenHash($token)]);
                     throw $mailError;
                 }
-                $notice = $purpose === 'reset'
+                $flashMessage = $purpose === 'reset'
                     ? 'Password-reset email sent to ' . (string)$user['email'] . '.'
                     : 'Verification email sent to ' . (string)$user['email'] . '.';
             } elseif ($action === 'create_invitation') {
@@ -119,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $projectStatement->execute([':id' => (int)$projectRecordId]);
                 $project = $projectStatement->fetch();
                 if (!$project) throw new InvalidArgumentException('That project is not active.');
-                $created = oobCreateInvitation(
+                $flashCreated = oobCreateInvitation(
                     $pdo,
                     (string)$project['project_id'],
                     (string)$project['project_name'],
@@ -127,22 +140,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (int)($_POST['days'] ?? 7),
                     (string)$principal['username']
                 );
-                $created['client_business_type'] = (string)$project['client_business_type'];
-            } elseif (!in_array($action, ['create_project', 'account_email', 'delete_user', 'delete_project'], true)) {
+                $flashCreated['client_business_type'] = (string)$project['client_business_type'];
+            } else {
                 throw new InvalidArgumentException('Choose a valid user-management action.');
             }
         } catch (PDOException $exception) {
             if ($pdo->inTransaction()) $pdo->rollBack();
-            $error = (string)$exception->getCode() === '23000'
+            $flashType = 'error';
+            $flashMessage = (string)$exception->getCode() === '23000'
                 ? 'That project ID already exists. Choose the existing project or use a different ID.'
                 : 'The project or user-management action could not be completed.';
+            $flashCreated = null;
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) $pdo->rollBack();
-            $error = $exception instanceof OobAuthException || $exception instanceof InvalidArgumentException
+            $flashType = 'error';
+            $flashMessage = $exception instanceof OobAuthException || $exception instanceof InvalidArgumentException
                 ? $exception->getMessage()
                 : 'The user-management action could not be completed.';
+            $flashCreated = null;
         }
     }
+
+    $_SESSION['admin_flash'] = [
+        'type' => $flashType,
+        'message' => $flashMessage,
+        'created' => $flashCreated,
+    ];
+    oobRedirect('/discovery/results/invitations/');
 }
 
 try {
@@ -243,4 +267,4 @@ foreach ($invitations as $invitation) {
     $body .= '</li>';
 }
 $body .= '</ul></section>';
-oobRenderAccountPage('Projects, users & access', 'Full Admin', 'Define projects once, connect each project to a business type, then manage project-level access and Client accounts.', $body, $error ? 400 : 200);
+oobRenderAccountPage('Projects, users & access', 'Full Admin', 'Define projects once, connect each project to a business type, then manage project-level access and Client accounts.', $body, 200);
