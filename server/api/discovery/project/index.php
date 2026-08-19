@@ -25,7 +25,8 @@ if (!$principal) oobRedirect('/discovery/results/');
 $projectId = trim((string)($_GET['project_id'] ?? ''));
 if (!oobValidClientId($projectId)) oobRenderAccountPage('Project required', 'Project dashboard', 'Open a project from your Discovery workspace.', '', 400, '', true);
 
-$allowed = (bool)$principal['system_admin'];
+$isAdmin = (bool)$principal['system_admin'];
+$allowed = $isAdmin;
 if (!$allowed) {
     foreach ((array)$principal['clients'] as $access) {
         if ((string)($access['client_id'] ?? '') === $projectId) { $allowed = true; break; }
@@ -38,15 +39,57 @@ $projectStatement->execute([':project_id' => $projectId]);
 $project = $projectStatement->fetch();
 if (!$project) oobRenderAccountPage('Project unavailable', 'Project dashboard', 'This project definition no longer exists.', '', 404, '', true);
 
-$memberStatement = $pdo->prepare("SELECT u.id, u.username, u.email, u.status, u.is_system_admin, COUNT(s.id) AS owned_submission_count FROM discovery_user_clients uc JOIN discovery_users u ON u.id = uc.user_id LEFT JOIN discovery_submissions s ON s.owner_user_id = u.id AND s.client_id = uc.client_id WHERE uc.client_id = :project_id GROUP BY u.id, u.username, u.email, u.status, u.is_system_admin ORDER BY u.username");
+$error = null;
+$notice = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!$isAdmin) {
+        oobRenderAccountPage('Admin access required', 'Project dashboard', 'Only a Full Admin can change project membership.', '', 403, '', true);
+    }
+    if (!oobValidCsrf()) {
+        $error = 'Your session expired. Refresh the page and try again.';
+    } else {
+        $action = (string)($_POST['action'] ?? '');
+        try {
+            $userId = filter_input(INPUT_POST, 'user_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if (!$userId) throw new InvalidArgumentException('Choose a valid Client account.');
+            $user = oobUserById($pdo, (int)$userId);
+            if (!$user || (bool)$user['is_system_admin']) throw new InvalidArgumentException('Choose a Client account.');
+
+            if ($action === 'add_member') {
+                if ((string)$user['status'] !== 'active') throw new InvalidArgumentException('Only active Client accounts can be added to a project.');
+                $statement = $pdo->prepare("INSERT INTO discovery_user_clients (user_id, client_id, role) VALUES (:user_id, :client_id, 'viewer') ON DUPLICATE KEY UPDATE role = 'viewer', updated_at = CURRENT_TIMESTAMP");
+                $statement->execute([':user_id' => (int)$userId, ':client_id' => $projectId]);
+                $notice = (string)$user['username'] . ' now has access to ' . (string)$project['project_name'] . '.';
+            } elseif ($action === 'remove_member') {
+                $statement = $pdo->prepare('DELETE FROM discovery_user_clients WHERE user_id = :user_id AND client_id = :client_id');
+                $statement->execute([':user_id' => (int)$userId, ':client_id' => $projectId]);
+                $notice = (string)$user['username'] . ' was removed from this project. Their account and submitted data were preserved.';
+            } else {
+                throw new InvalidArgumentException('Choose a valid project membership action.');
+            }
+        } catch (Throwable $memberError) {
+            $error = $memberError instanceof InvalidArgumentException
+                ? $memberError->getMessage()
+                : 'Project membership could not be updated.';
+        }
+    }
+}
+
+$memberStatement = $pdo->prepare("SELECT u.id, u.username, u.email, u.status, COUNT(s.id) AS owned_submission_count FROM discovery_user_clients uc JOIN discovery_users u ON u.id = uc.user_id LEFT JOIN discovery_submissions s ON s.owner_user_id = u.id AND s.client_id = uc.client_id WHERE uc.client_id = :project_id AND u.is_system_admin = 0 GROUP BY u.id, u.username, u.email, u.status ORDER BY u.username");
 $memberStatement->execute([':project_id' => $projectId]);
 $members = $memberStatement->fetchAll();
+
+$availableClients = [];
+if ($isAdmin) {
+    $availableStatement = $pdo->prepare("SELECT u.id, u.username, u.email FROM discovery_users u WHERE u.is_system_admin = 0 AND u.status = 'active' AND NOT EXISTS (SELECT 1 FROM discovery_user_clients uc WHERE uc.user_id = u.id AND uc.client_id = :project_id) ORDER BY u.username");
+    $availableStatement->execute([':project_id' => $projectId]);
+    $availableClients = $availableStatement->fetchAll();
+}
 
 $submissionStatement = $pdo->prepare("SELECT s.id, s.submission_id, s.respondent_name, s.respondent_email, s.owner_user_id, s.questionnaire_version, s.status, s.created_at, s.updated_at, u.username AS owner_username, u.email AS owner_email FROM discovery_submissions s LEFT JOIN discovery_users u ON u.id = s.owner_user_id WHERE s.client_id = :project_id AND s.client_id <> 'deployment-check' ORDER BY s.updated_at DESC, s.id DESC LIMIT 250");
 $submissionStatement->execute([':project_id' => $projectId]);
 $submissions = $submissionStatement->fetchAll();
 
-$isAdmin = (bool)$principal['system_admin'];
 $currentUserId = (int)($principal['user_id'] ?? 0);
 $csrf = oobEscape(oobCsrfToken());
 $headerActions = '<span class="header-context">' . oobEscape((string)$principal['username']) . ' · ' . ($isAdmin ? 'Full Admin' : 'Client') . '</span>'
@@ -56,14 +99,35 @@ $headerActions .= '<form method="post" action="/discovery/results/"><input type=
 
 $body = '<p class="meta">Project ID: ' . oobEscape((string)$project['project_id']) . ' · Business type: ' . oobEscape((string)$project['client_business_type']) . ' · ' . oobEscape(ucfirst((string)$project['status'])) . '</p>';
 $body .= '<p class="notice notice-info"><strong>Project visibility:</strong> everyone assigned to this project can review all responses in the project. Only the account that originally submitted a response can edit it. Full Admins can review all projects.</p>';
+if ($error) $body .= '<p class="notice notice-error" role="alert">' . oobEscape($error) . '</p>';
+if ($notice) $body .= '<p class="notice notice-success" role="status">' . oobEscape($notice) . '</p>';
 
-$body .= '<section class="card"><p class="eyebrow">Project people</p><h2>Members</h2><ul class="list">';
+$body .= '<section class="card"><p class="eyebrow">Project people</p><h2>Members</h2><p class="help">Client membership controls who can review this project’s shared Discovery data. Removing a Client from the project does not delete their account or their submitted data.</p><ul class="list">';
 if ($members === []) $body .= '<li>No Client accounts are currently assigned to this project.</li>';
 foreach ($members as $member) {
-    $body .= '<li><strong>' . oobEscape((string)$member['username']) . '</strong> · ' . ((bool)$member['is_system_admin'] ? 'Full Admin' : 'Client')
-        . '<br><span class="meta">' . oobEscape((string)$member['email']) . ' · ' . oobEscape(ucfirst((string)$member['status'])) . ' · ' . (int)$member['owned_submission_count'] . ' submitted response' . ((int)$member['owned_submission_count'] === 1 ? '' : 's') . '</span></li>';
+    $body .= '<li><strong>' . oobEscape((string)$member['username']) . '</strong> · Client'
+        . '<br><span class="meta">' . oobEscape((string)$member['email']) . ' · ' . oobEscape(ucfirst((string)$member['status'])) . ' · ' . (int)$member['owned_submission_count'] . ' submitted response' . ((int)$member['owned_submission_count'] === 1 ? '' : 's') . '</span>';
+    if ($isAdmin) {
+        $body .= '<form method="post" class="actions"><input type="hidden" name="csrf" value="' . $csrf . '"><input type="hidden" name="action" value="remove_member"><input type="hidden" name="user_id" value="' . (int)$member['id'] . '"><button class="button-secondary" type="submit">Remove from project</button></form>';
+    }
+    $body .= '</li>';
 }
-$body .= '</ul></section><div class="rule"></div>';
+$body .= '</ul>';
+
+if ($isAdmin) {
+    $body .= '<div class="rule"></div><p class="eyebrow">Admin</p><h2>Add Client access</h2>';
+    if ($availableClients === []) {
+        $body .= '<p class="help">Every active Client account is already assigned to this project, or there are no additional active Client accounts yet.</p>';
+    } else {
+        $body .= '<form method="post" class="form"><input type="hidden" name="csrf" value="' . $csrf . '"><input type="hidden" name="action" value="add_member"><label for="user_id">Client account</label><select id="user_id" name="user_id" required><option value="">Choose a Client</option>';
+        foreach ($availableClients as $client) {
+            $body .= '<option value="' . (int)$client['id'] . '">' . oobEscape((string)$client['username']) . ' · ' . oobEscape((string)$client['email']) . '</option>';
+        }
+        $body .= '</select><button type="submit">Add to project</button></form>';
+    }
+    $body .= '<p class="help">Need a new Client account? <a href="/discovery/results/invitations/">Create an invitation</a>, then return here to manage project membership.</p>';
+}
+$body .= '</section><div class="rule"></div>';
 
 $body .= '<section><p class="eyebrow">Project data</p><h2>Responses</h2><p class="help">These are all stored Discovery responses associated with this project, regardless of which project member submitted them.</p><ul class="list">';
 if ($submissions === []) $body .= '<li>No responses have been submitted to this project yet.</li>';
@@ -79,4 +143,4 @@ foreach ($submissions as $row) {
 }
 $body .= '</ul></section>';
 
-oobRenderAccountPage((string)$project['project_name'], 'Project dashboard', 'Project-level Discovery data and account access.', $body, 200, $headerActions, true);
+oobRenderAccountPage((string)$project['project_name'], 'Project dashboard', 'Project-level Discovery data and account access.', $body, $error ? 400 : 200, $headerActions, true);
