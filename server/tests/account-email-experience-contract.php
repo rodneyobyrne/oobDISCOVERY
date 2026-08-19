@@ -38,7 +38,7 @@ if (!str_contains($confirm, "oobRedirect('https://discovery.oobcreative.com/?ver
     exit(1);
 }
 
-foreach (['Your email is verified. Your Discovery access is active.', 'Review team perspectives', 'Contribute my perspective'] as $needle) {
+foreach (['Email verified.', 'Your Discovery access is active.', 'Review team perspectives', 'Contribute my perspective'] as $needle) {
     if (!str_contains($home, $needle)) {
         fwrite(STDERR, "Verified Client landing is missing: {$needle}\n");
         exit(1);
