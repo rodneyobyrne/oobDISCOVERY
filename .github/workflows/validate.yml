@@ -21,6 +21,7 @@ jobs:
           node --check src/bootstrap.js
           node --check src/home-login.js
           node --check src/system-config.js
+          node --check src/varetto-onboarding.js
           node --check config/clinician-core.js
           node --check config/varetto.js
 
@@ -63,3 +64,4 @@ jobs:
           php server/tests/home-session-contract.php
           php server/tests/project-access-contract.php
           php server/tests/invitation-experience-contract.php
+          php server/tests/onboarding-copy-contract.php
