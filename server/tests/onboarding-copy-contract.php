@@ -11,14 +11,20 @@ if ($ui === false || $index === false || $onboarding === false) {
 }
 
 $requiredUi = [
+    'Customer perspective discovery',
+    'Private invitation',
+    'invitation-project-name',
     'Discovery is a way for the people closest to the work to help us better understand the people they serve.',
     'The more we understand about the questions, concerns, experiences, and challenges an audience brings',
-    'Your perspective becomes part of a shared Discovery project.',
-    'To get started, create your secure Discovery account below.',
+    'Your perspective will be considered alongside other team perspectives',
+    '.primary-account-card{order:1',
+    '.invitation-assurance{order:2',
+    '.existing-account{order:4',
+    '.shell:has(.invitation-experience) .rule{height:2px',
 ];
 foreach ($requiredUi as $needle) {
     if (!str_contains($ui, $needle)) {
-        fwrite(STDERR, "Invitation education is missing: {$needle}\n");
+        fwrite(STDERR, "Invitation education or compact hierarchy is missing: {$needle}\n");
         exit(1);
     }
 }
@@ -50,8 +56,8 @@ foreach ($requiredOnboarding as $needle) {
     }
 }
 
-if (str_contains($onboarding, '—') || str_contains($index, '—')) {
-    fwrite(STDERR, "New questionnaire onboarding copy contains an em dash.\n");
+if (str_contains($onboarding, '—') || str_contains($index, '—') || str_contains($ui, '—')) {
+    fwrite(STDERR, "New onboarding copy contains an em dash.\n");
     exit(1);
 }
 
