@@ -252,7 +252,26 @@ if (!oobAccountAuthEnabled($accessConfig)) {
     oobRenderAccountPage('Invitation not active yet', 'Discovery account', 'The account system is being configured. Ask the sender to let you know when this link is ready.', '<p class="notice notice-info">No account has been created and this invitation has not been used.</p>', 503);
 }
 
+$clientLabel = (string)$invitation['client_label'];
+$invitationUsernameForEmail = static function (PDO $pdo, string $email): string {
+    $local = strtolower((string)(strstr($email, '@', true) ?: 'member'));
+    $base = preg_replace('/[^a-z0-9._-]+/', '-', $local) ?? 'member';
+    $base = preg_replace('/^[^a-z0-9]+|[^a-z0-9]+$/', '', $base) ?? '';
+    if ($base === '') $base = 'member';
+    if (strlen($base) < 3) $base .= '-member';
+    $base = substr($base, 0, 28);
+    $lookup = $pdo->prepare('SELECT 1 FROM discovery_users WHERE username = :username LIMIT 1');
+    for ($attempt = 0; $attempt < 10000; $attempt++) {
+        $suffix = $attempt === 0 ? '' : '-' . ($attempt + 1);
+        $candidate = substr($base, 0, 32 - strlen($suffix)) . $suffix;
+        $lookup->execute([':username' => $candidate]);
+        if (!$lookup->fetchColumn()) return $candidate;
+    }
+    throw new OobAuthException('A secure account name could not be created. Ask the sender for help.', 503, 'username_unavailable');
+};
+
 $error = null;
+$postedAction = (string)($_POST['action'] ?? '');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!oobValidCsrf()) {
         $error = 'Your session expired. Refresh the page and try again.';
@@ -269,19 +288,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $email = strtolower(trim((string)($_POST['email'] ?? '')));
-            $username = trim((string)($_POST['username'] ?? ''));
             $password = (string)($_POST['password'] ?? '');
             $confirmation = (string)($_POST['password_confirmation'] ?? '');
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) throw new OobAuthException('Enter a valid email address.', 400, 'email_invalid');
-            if (!oobValidUsername($username)) throw new OobAuthException('Use 3–32 letters, numbers, periods, underscores, or hyphens for your username.', 400, 'username_invalid');
+            if (oobUserByEmail($pdo, $email)) throw new OobAuthException('That email already has a Discovery account. Use the existing-account option below to connect this project.', 409, 'account_exists');
             if ($password !== $confirmation) throw new OobAuthException('The passwords do not match.', 400, 'password_mismatch');
             $passwordError = oobPasswordError($password);
             if ($passwordError !== null) throw new OobAuthException($passwordError, 400, 'password_invalid');
+            $username = $invitationUsernameForEmail($pdo, $email);
             $created = oobCreateInvitedUser($pdo, $token, $email, $username, $password);
             oobSendAccountLinkEmail($accessConfig, $created['user'], (string)$created['token'], 'verify');
-            $body = '<p class="notice notice-success" role="status"><strong>Check your email.</strong><br>Use the verification link we sent to finish your account and open the project workspace.</p>'
-                . '<p>Your email will show both your username and account email. Either can be used to sign in, and both use the password you just created. Once verified, project membership determines the shared responses you can review.</p>';
-            oobRenderAccountPage('Verify your email', 'Account created', 'Your invitation is connected to your new Client account and project.', $body);
+            $verifyBody = '<div class="invitation-experience"><section class="primary-account-card"><p class="eyebrow">Email verification</p><h2>Check your inbox</h2><p class="help">We sent a private verification link to <strong>' . oobEscape($email) . '</strong>. Open that message and verify your email once to activate your account.</p><p class="invitation-note">After verification, you’ll be connected to ' . oobEscape($clientLabel) . ' and can open the project workspace.</p></section></div>';
+            oobRenderAccountPage('One quick check', 'Account created', 'Your secure Discovery account is ready. Verify your email to finish connecting to ' . $clientLabel . '.', $verifyBody, 200, '<span class="header-context">Secure account setup</span>');
         } catch (OobAuthException $exception) {
             $error = $exception->getMessage();
         } catch (Throwable $exception) {
@@ -291,16 +309,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$clientLabel = (string)$invitation['client_label'];
+try {
+    $timezone = new DateTimeZone((string)($accessConfig['timezone'] ?? 'America/Denver'));
+    $expiresText = (new DateTimeImmutable((string)$invitation['expires_at'], new DateTimeZone('UTC')))->setTimezone($timezone)->format('M j, Y');
+} catch (Throwable $errorDate) {
+    $expiresText = 'the date shown by your sender';
+}
+
 $notice = $error ? '<p class="notice notice-error" role="alert">' . oobEscape($error) . '</p>' : '';
 $csrf = oobEscape(oobCsrfToken());
 $safeToken = oobEscape($token);
-$body = $notice . '<div class="split">'
-    . '<section class="card"><p class="eyebrow">New Client account</p><h2>Create your account</h2><p class="help">Your email address is used for verification and account recovery. Your username is a shorter sign-in name you create. After setup, you can sign in with either one; both use the same password.</p><form method="post" class="form"><input type="hidden" name="csrf" value="' . $csrf . '"><input type="hidden" name="token" value="' . $safeToken . '"><input type="hidden" name="action" value="create">'
-    . '<label for="email">Email address</label><input id="email" name="email" type="email" autocomplete="email" maxlength="254" required value="' . oobEscape((string)($_POST['email'] ?? '')) . '"><small>We’ll use this address for verification, password resets, and username reminders.</small>'
-    . '<label for="username">Username</label><input id="username" name="username" type="text" autocomplete="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,31}" required value="' . oobEscape((string)($_POST['username'] ?? '')) . '"><small>Create a sign-in name with 3–32 letters, numbers, periods, underscores, or hyphens. You can also sign in with your email address.</small>'
-    . '<label for="password">Create password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><small>Use at least 12 characters. This password works with either your username or email address.</small>'
-    . '<label for="password_confirmation">Confirm password</label><input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><button type="submit">Create Client account</button></form></section>'
-    . '<section class="card"><p class="eyebrow">Already registered</p><h2>Use your existing account</h2><p class="help">Sign in to connect this invitation to your existing Discovery account. Use either the email address on the account or the username you created.</p><form method="post" class="form"><input type="hidden" name="csrf" value="' . $csrf . '"><input type="hidden" name="token" value="' . $safeToken . '"><input type="hidden" name="action" value="existing">'
-    . '<label for="identifier">Email address or username</label><input id="identifier" name="identifier" type="text" autocomplete="username" required><small>Either one signs into the same account.</small><label for="existing_password">Password</label><input id="existing_password" name="existing_password" type="password" autocomplete="current-password" required><button type="submit">Sign in and connect invitation</button></form><p class="help"><a href="/discovery/account/forgot/">Trouble signing in?</a></p></section></div>';
-oobRenderAccountPage('Your invitation', 'Discovery account', 'This invitation connects your Client account to ' . $clientLabel . '. Project members can review all responses in the same project; only the account that submitted a response can edit it.', $body, $error ? 400 : 200);
+$existingOpen = $error && $postedAction === 'existing' ? ' open' : '';
+$headerActions = '<a class="invitation-existing-link" href="#existing-account">Already use Discovery? <strong>Sign in</strong></a>';
+$body = $notice . '<div class="invitation-experience">'
+    . '<section class="invitation-assurance" aria-label="Invitation and access details">'
+    . '<div class="assurance-item"><strong>Private project access</strong><span>This invitation connects you only to ' . oobEscape($clientLabel) . '.</span></div>'
+    . '<div class="assurance-item"><strong>Shared project visibility</strong><span>Project members can review responses submitted inside this project.</span></div>'
+    . '<div class="assurance-item"><strong>Your editing stays personal</strong><span>Only the account that submitted a response can edit that response.</span></div>'
+    . '</section>'
+    . '<p class="invitation-note">This is a single-use invitation. Your email must be verified before access is activated, and this link expires ' . oobEscape($expiresText) . '.</p>'
+    . '<section class="primary-account-card"><p class="eyebrow">Step 1 of 2</p><h2>Create your secure access</h2><p class="help">Use your email address and choose a password. We’ll send a verification link next. You’ll sign in with your email, so there’s no extra username to invent.</p>'
+    . '<form method="post" class="form"><input type="hidden" name="csrf" value="' . $csrf . '"><input type="hidden" name="token" value="' . $safeToken . '"><input type="hidden" name="action" value="create">'
+    . '<label for="email">Email address</label><input id="email" name="email" type="email" autocomplete="email" maxlength="254" required value="' . oobEscape((string)($_POST['email'] ?? '')) . '"><small>This becomes your primary sign-in and recovery address.</small>'
+    . '<div class="password-pair"><div><label for="password">Create password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><small>Use at least 12 characters.</small></div>'
+    . '<div><label for="password_confirmation">Confirm password</label><input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></div></div>'
+    . '<button type="submit">Create my Discovery account</button><p class="next-step"><strong>Next:</strong> check your email, verify once, and open ' . oobEscape($clientLabel) . '.</p></form></section>'
+    . '<details id="existing-account" class="existing-account"' . $existingOpen . '><summary>Already have a Discovery account? Sign in to connect this project.</summary><div class="existing-inner"><h2>Connect your existing account</h2><p class="help">Use the email address or username already attached to your Discovery account.</p>'
+    . '<form method="post" class="form"><input type="hidden" name="csrf" value="' . $csrf . '"><input type="hidden" name="token" value="' . $safeToken . '"><input type="hidden" name="action" value="existing">'
+    . '<div class="field"><label for="identifier">Email or username</label><input id="identifier" name="identifier" type="text" autocomplete="username" required></div><div class="field"><label for="existing_password">Password</label><input id="existing_password" name="existing_password" type="password" autocomplete="current-password" required></div><button type="submit">Sign in &amp; connect</button></form><p class="existing-help"><a href="/discovery/account/forgot/">Forgot your password or sign-in?</a></p></div></details>'
+    . '</div>';
+oobRenderAccountPage('You’re invited to ' . $clientLabel, 'Private Discovery invitation', 'Set up secure access to the ' . $clientLabel . ' Discovery project. Verify your email once, then you can review the project’s shared responses and contribute your own.', $body, $error ? 400 : 200, $headerActions);
