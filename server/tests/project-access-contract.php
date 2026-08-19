@@ -31,6 +31,12 @@ $required = [
     ['response', '$isOwner'],
     ['project', 'Project visibility:'],
     ['project', 'everyone assigned to this project can review all responses'],
+    ['project', "action === 'add_member'"],
+    ['project', "action === 'remove_member'"],
+    ['project', 'Add to project'],
+    ['project', 'Remove from project'],
+    ['project', 'u.is_system_admin = 0'],
+    ['project', 'Their account and submitted data were preserved'],
     ['deploy', 'server/api/discovery/project/index.php'],
 ];
 
@@ -46,4 +52,4 @@ if (str_contains($sources['admin'], 'pattern="[a-z0-9][a-z0-9-]{1,79}" required 
     exit(1);
 }
 
-fwrite(STDOUT, "Project dashboard, project visibility, and admin controls contract OK\n");
+fwrite(STDOUT, "Project dashboard, project visibility, member management, and admin controls contract OK\n");
